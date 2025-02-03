@@ -142,7 +142,6 @@
       }
     }
     @media (max-width: 768px) {
-      /* When toolbar is visible on mobile, use 80px; when hidden, occupy full screen */
       #reader {
         margin-top: 80px;
         height: calc(100vh - 80px);
@@ -153,8 +152,7 @@
       }
     }
     
-    /* One-page mode styling */
-    /* When one-page mode is active, we center the content */
+    /* One-page mode styling: center the content */
     #reader.one-page {
       display: flex;
       justify-content: center;
@@ -162,14 +160,53 @@
       height: 100vh;
       overflow: hidden;
     }
-    /* The rendered content (typically in an iframe or a container with class 'epub-view') */
+    /* Constrain rendered content to realistic page dimensions */
     #reader.one-page iframe,
     #reader.one-page .epub-view {
-      /* Base dimensions representing a realistic page */
       width: 600px;
       height: 800px;
       box-shadow: 0 0 10px rgba(0,0,0,0.3);
       transform-origin: center center;
+    }
+    
+    /* Mobile overlay navigation buttons */
+    @media (max-width: 768px) {
+      .mobile-nav {
+        position: fixed;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 40px;
+        height: 40px;
+        background: rgba(0,0,0,0.3);
+        color: #fff;
+        font-size: 1.5em;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 20px;
+        z-index: 1200;
+        cursor: pointer;
+      }
+      #mobileNavLeft {
+        left: 10px;
+      }
+      #mobileNavRight {
+        right: 10px;
+      }
+    }
+    
+    /* A fixed icon to show the toolbar when hidden */
+    #showToolbarIcon {
+      position: fixed;
+      top: 5px;
+      left: 5px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      padding: 5px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 1200;
+      display: none;
     }
   </style>
 </head>
@@ -191,8 +228,12 @@
     <span id="pageInfo">Page 0 of 0</span>
   </div>
   
-  <!-- Icon to show toolbar when hidden -->
-  <div id="showToolbarIcon" style="display:none;">☰</div>
+  <!-- This icon appears when the toolbar is hidden -->
+  <div id="showToolbarIcon">☰</div>
+  
+  <!-- Mobile overlay navigation buttons -->
+  <div id="mobileNavLeft" class="mobile-nav">‹</div>
+  <div id="mobileNavRight" class="mobile-nav">›</div>
   
   <!-- TOC Sidebar -->
   <div id="toc" class="hidden"></div>
@@ -228,17 +269,16 @@
       if (window.innerWidth <= 768) {
         renderOptions.spread = "none";
       }
-      // For desktop, if onePageMode is toggled, set spread to "none"
+      // On desktop, if onePageMode is toggled, set spread to "none"
       else if (onePageMode) {
         renderOptions.spread = "none";
       }
       
       currentRendition = currentBook.renderTo("reader", renderOptions);
       
-      // Apply one-page styling if active or on mobile
+      // Apply one-page styling if active (or on mobile)
       if (onePageMode || window.innerWidth <= 768) {
         document.getElementById("reader").classList.add("one-page");
-        // After a short delay, scale the content to fit the viewport
         setTimeout(scaleOnePageContent, 300);
       } else {
         document.getElementById("reader").classList.remove("one-page");
@@ -303,7 +343,7 @@
         }
       });
       
-      // Register keydown events inside EPUB content so arrow keys work when focus is inside.
+      // Register keydown events inside EPUB content
       currentRendition.hooks.content.register(function(contents, rendition) {
         const doc = contents.document;
         doc.body.setAttribute("tabindex", "0");
@@ -320,16 +360,12 @@
     
     // Function to scale one-page mode content responsively.
     function scaleOnePageContent() {
-      // Try to select the iframe or content element rendered by epub.js.
       const container = document.querySelector("#reader.one-page iframe, #reader.one-page .epub-view");
       if (!container) return;
-      // Base dimensions
       const baseWidth = 600;
       const baseHeight = 800;
-      // Get available viewport dimensions (minus some margin)
-      const viewportWidth = window.innerWidth * 0.9; // use 90% of viewport width
-      const viewportHeight = window.innerHeight * 0.9; // use 90% of viewport height
-      // Compute scale factor
+      const viewportWidth = window.innerWidth * 0.9;
+      const viewportHeight = window.innerHeight * 0.9;
       const scale = Math.min(viewportWidth / baseWidth, viewportHeight / baseHeight, 1);
       container.style.transform = "scale(" + scale + ")";
       container.style.transformOrigin = "center center";
@@ -425,7 +461,7 @@
       }
     });
     
-    // Global arrow key navigation (for when focus is not in the EPUB content)
+    // Global arrow key navigation (for when focus is not in EPUB content)
     document.addEventListener("keydown", function(e) {
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
       if (e.key === "ArrowLeft") {
@@ -435,7 +471,7 @@
       }
     });
     
-    // Toggle toolbar (top menu) visibility for mobile
+    // Toggle toolbar visibility for mobile
     document.getElementById("toggleToolbar").addEventListener("click", function(){
       const toolbar = document.getElementById("toolbar");
       const reader = document.getElementById("reader");
@@ -478,10 +514,8 @@
         return;
       }
       onePageMode = !onePageMode;
-      // Save current location
       const currentLocation = currentRendition.currentLocation();
       const cfi = currentLocation ? currentLocation.start.cfi : undefined;
-      // Reload the book with updated render options
       loadBook(currentFileName, currentFileName);
       if (cfi) {
         currentRendition.display(cfi);
@@ -500,6 +534,15 @@
       if (document.getElementById("reader").classList.contains("one-page")) {
         scaleOnePageContent();
       }
+    });
+    
+    // Mobile overlay navigation buttons
+    // These buttons allow navigation even when the toolbar is hidden.
+    document.getElementById("mobileNavLeft").addEventListener("click", function(){
+      if (currentRendition) currentRendition.prev();
+    });
+    document.getElementById("mobileNavRight").addEventListener("click", function(){
+      if (currentRendition) currentRendition.next();
     });
   </script>
 </body>
