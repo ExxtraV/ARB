@@ -4,14 +4,21 @@
   <meta charset="UTF-8">
   <!-- Responsive meta tag -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lever Action with EPUB Download</title>
-  <!-- Google Font -->
+  <title>Lever Action EPUB Reader</title>
+  <!-- Google Font: Roboto -->
   <link href="https://fonts.googleapis.com/css?family=Roboto:400,500&display=swap" rel="stylesheet">
+  <!-- Font Awesome 5.15.4 for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+  
   <style>
-    /* Global CSS variables for themes */
+    /* ---------------------------- */
+    /* Global Variables & Base Styles */
+    /* ---------------------------- */
     :root {
       --bg-color-light: #f5f7fa;
       --text-color-light: #333;
+      --accent-color: #4e54c8;
+      --accent-light: #8f94fb;
       --toc-bg-light: #fff;
       --toc-text-light: #333;
       
@@ -21,7 +28,6 @@
       --toc-text-dark: #f5f5f5;
     }
     
-    /* Style both html and body */
     html, body {
       margin: 0;
       padding: 0;
@@ -29,20 +35,22 @@
       background-color: var(--bg-color-light);
       color: var(--text-color-light);
       overflow-x: hidden;
-      transition: background-color 0.3s, color 0.3s;
+      transition: background-color 0.3s ease, color 0.3s ease;
     }
     html.dark, body.dark {
       background-color: var(--bg-color-dark);
       color: var(--text-color-dark);
     }
     
-    /* Toolbar styling */
+    /* ---------------------------- */
+    /* Toolbar */
+    /* ---------------------------- */
     .toolbar {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
-      background: linear-gradient(90deg, #4e54c8, #8f94fb);
+      background: linear-gradient(90deg, var(--accent-color), var(--accent-light));
       color: #fff;
       padding: 10px 15px;
       display: flex;
@@ -63,24 +71,21 @@
       border-radius: 4px;
       cursor: pointer;
       font-weight: 500;
-      transition: background 0.3s;
+      transition: background 0.3s ease;
     }
     .toolbar button:hover,
     .toolbar label:hover {
       background: rgba(255,255,255,0.3);
     }
-    input[type="file"] {
-      display: none;
-    }
-    #pageInfo {
-      margin-left: auto;
-      font-weight: 500;
-    }
+    input[type="file"] { display: none; }
+    #pageInfo { margin-left: auto; font-weight: 500; }
     
-    /* TOC styling */
+    /* ---------------------------- */
+    /* TOC */
+    /* ---------------------------- */
     #toc {
       position: fixed;
-      top: 60px; /* below toolbar */
+      top: 60px;
       left: 0;
       bottom: 0;
       width: 250px;
@@ -97,62 +102,41 @@
       background: var(--toc-bg-dark);
       color: var(--toc-text-dark);
     }
-    #toc.hidden {
-      transform: translateX(-260px);
-    }
+    #toc.hidden { transform: translateX(-260px); }
     @media (max-width: 768px) {
-      #toc.hidden {
-        transform: translateX(-100%);
-        pointer-events: none;
-      }
+      #toc.hidden { transform: translateX(-100%); pointer-events: none; }
     }
-    #toc ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-    #toc li {
-      margin-bottom: 12px;
-    }
+    #toc ul { list-style: none; padding: 0; margin: 0; }
+    #toc li { margin-bottom: 12px; }
     #toc a {
       text-decoration: none;
       color: inherit;
       font-weight: 500;
-      transition: color 0.2s;
+      transition: color 0.2s ease;
     }
-    #toc a:hover {
-      color: #8f94fb;
-    }
+    #toc a:hover { color: var(--accent-light); }
     
-    /* Reader container styling */
+    /* ---------------------------- */
+    /* Reader Container */
+    /* ---------------------------- */
     #reader {
       margin-top: 60px;
       height: calc(100vh - 60px);
       overflow: auto;
       background: #fff;
-      transition: margin-left 0.3s, margin-top 0.3s, height 0.3s;
+      transition: margin-left 0.3s ease, margin-top 0.3s ease, height 0.3s ease;
       font-size: 16px;
     }
-    body.dark #reader {
-      background: var(--bg-color-dark);
-    }
+    body.dark #reader { background: var(--bg-color-dark); }
     @media (min-width: 769px) {
-      #reader.with-toc {
-        margin-left: 250px;
-      }
+      #reader.with-toc { margin-left: 250px; }
     }
     @media (max-width: 768px) {
-      #reader {
-        margin-top: 80px;
-        height: calc(100vh - 80px);
-      }
-      #reader.no-toolbar {
-        margin-top: 0;
-        height: 100vh;
-      }
+      #reader { margin-top: 80px; height: calc(100vh - 80px); }
+      #reader.no-toolbar { margin-top: 0; height: 100vh; }
     }
     
-    /* One-page mode styling: center the content */
+    /* One-page mode styling */
     #reader.one-page {
       display: flex;
       justify-content: center;
@@ -169,7 +153,9 @@
       transform-origin: center center;
     }
     
-    /* Mobile overlay navigation buttons */
+    /* ---------------------------- */
+    /* Mobile Overlay Navigation */
+    /* ---------------------------- */
     @media (max-width: 768px) {
       .mobile-nav {
         position: fixed;
@@ -183,19 +169,17 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 20px;
+        border-radius: 50%;
         z-index: 1200;
         cursor: pointer;
       }
-      #mobileNavLeft {
-        left: 10px;
-      }
-      #mobileNavRight {
-        right: 10px;
-      }
+      #mobileNavLeft { left: 10px; }
+      #mobileNavRight { right: 10px; }
     }
     
-    /* A fixed icon to show the toolbar when hidden */
+    /* ---------------------------- */
+    /* Show Toolbar Icon (when toolbar hidden) */
+    /* ---------------------------- */
     #showToolbarIcon {
       position: fixed;
       top: 5px;
@@ -211,29 +195,29 @@
   </style>
 </head>
 <body>
-  <!-- Toolbar -->
+  <!-- Toolbar with icons -->
   <div class="toolbar" id="toolbar">
-    <button id="prev">← Prev</button>
-    <button id="next">Next →</button>
-    <button id="toggleTheme">Toggle Theme</button>
-    <button id="toggleTOC">☰ TOC</button>
-    <button id="downloadEPUB">Download EPUB</button>
-    <button id="toggleFullscreen">Fullscreen</button>
-    <button id="decreaseFont">A–</button>
-    <button id="increaseFont">A+</button>
-    <button id="toggleToolbar">Toggle Menu</button>
-    <button id="togglePageMode">Toggle Page Mode</button>
-    <label for="fileInput">Upload EPUB</label>
+    <button id="prev" aria-label="Previous Page"><i class="fas fa-chevron-left"></i></button>
+    <button id="next" aria-label="Next Page"><i class="fas fa-chevron-right"></i></button>
+    <button id="toggleTheme" aria-label="Toggle Theme"><i class="fas fa-adjust"></i></button>
+    <button id="toggleTOC" aria-label="Toggle Table of Contents"><i class="fas fa-bars"></i></button>
+    <button id="downloadEPUB" aria-label="Download EPUB"><i class="fas fa-download"></i></button>
+    <button id="toggleFullscreen" aria-label="Toggle Fullscreen"><i class="fas fa-expand"></i></button>
+    <button id="decreaseFont" aria-label="Decrease Text Size"><i class="fas fa-minus"></i></button>
+    <button id="increaseFont" aria-label="Increase Text Size"><i class="fas fa-plus"></i></button>
+    <button id="toggleToolbar" aria-label="Toggle Menu"><i class="fas fa-ellipsis-h"></i></button>
+    <button id="togglePageMode" aria-label="Toggle Page Mode"><i class="fas fa-book-open"></i></button>
+    <label for="fileInput" aria-label="Upload EPUB"><i class="fas fa-upload"></i></label>
     <input type="file" id="fileInput" accept=".epub">
     <span id="pageInfo">Page 0 of 0</span>
   </div>
   
-  <!-- This icon appears when the toolbar is hidden -->
-  <div id="showToolbarIcon">☰</div>
+  <!-- Icon to show toolbar when hidden (mobile) -->
+  <div id="showToolbarIcon" aria-label="Show Menu">☰</div>
   
   <!-- Mobile overlay navigation buttons -->
-  <div id="mobileNavLeft" class="mobile-nav">‹</div>
-  <div id="mobileNavRight" class="mobile-nav">›</div>
+  <div id="mobileNavLeft" class="mobile-nav" aria-label="Previous Page"><i class="fas fa-chevron-left"></i></div>
+  <div id="mobileNavRight" class="mobile-nav" aria-label="Next Page"><i class="fas fa-chevron-right"></i></div>
   
   <!-- TOC Sidebar -->
   <div id="toc" class="hidden"></div>
@@ -244,12 +228,13 @@
   <!-- Include JSZip and epub.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
   <script src="https://unpkg.com/epubjs/dist/epub.min.js"></script>
+  
   <script>
     let currentBook = null;
     let currentRendition = null;
     // For the default EPUB, currentFileName is "LeverAction.epub"
     let currentFileName = "";
-    // Starting font size in pixels (for EPUB content)
+    // Starting font size for EPUB content in pixels
     let currentFontSize = 16;
     // Page mode flag: false = spread mode, true = one-page mode
     let onePageMode = false;
@@ -263,14 +248,11 @@
       currentFileName = fileName;
       currentBook = ePub(source);
       
-      // Set render options:
+      // Set render options: force one-page on mobile, or use onePageMode on desktop.
       let renderOptions = { width: "100%", height: "100%" };
-      // Force one-page mode on mobile
       if (window.innerWidth <= 768) {
         renderOptions.spread = "none";
-      }
-      // On desktop, if onePageMode is toggled, set spread to "none"
-      else if (onePageMode) {
+      } else if (onePageMode) {
         renderOptions.spread = "none";
       }
       
@@ -284,7 +266,7 @@
         document.getElementById("reader").classList.remove("one-page");
       }
       
-      // Set initial font size via epub.js theme
+      // Set initial font size using epub.js theme
       currentRendition.themes.fontSize(currentFontSize + "px");
       
       // Register a dark theme for EPUB content
@@ -323,9 +305,7 @@
           a.addEventListener("click", function(e) {
             e.preventDefault();
             currentRendition.display(chapter.href);
-            if (window.innerWidth <= 768) {
-              hideTOC();
-            }
+            if (window.innerWidth <= 768) { hideTOC(); }
           });
           li.appendChild(a);
           ul.appendChild(li);
@@ -343,17 +323,14 @@
         }
       });
       
-      // Register keydown events inside EPUB content
+      // Register keydown events inside EPUB content for arrow key navigation.
       currentRendition.hooks.content.register(function(contents, rendition) {
         const doc = contents.document;
         doc.body.setAttribute("tabindex", "0");
         doc.body.focus();
         doc.addEventListener("keydown", function(e) {
-          if (e.key === "ArrowLeft") {
-            rendition.prev();
-          } else if (e.key === "ArrowRight") {
-            rendition.next();
-          }
+          if (e.key === "ArrowLeft") { rendition.prev(); }
+          else if (e.key === "ArrowRight") { rendition.next(); }
         });
       });
     }
@@ -374,20 +351,23 @@
     // Load the default book "LeverAction.epub"
     loadBook("LeverAction.epub", "LeverAction.epub");
     
-    document.getElementById("prev").addEventListener("click", function(){
+    // Global navigation buttons
+    document.getElementById("prev").addEventListener("click", function() {
       if (currentRendition) currentRendition.prev();
     });
-    document.getElementById("next").addEventListener("click", function(){
+    document.getElementById("next").addEventListener("click", function() {
       if (currentRendition) currentRendition.next();
     });
     
-    document.getElementById("toggleTheme").addEventListener("click", function(){
+    // Theme toggle
+    document.getElementById("toggleTheme").addEventListener("click", function() {
       document.body.classList.toggle("dark");
       if (currentRendition) {
         currentRendition.themes.select(document.body.classList.contains("dark") ? "dark" : "default");
       }
     });
     
+    // TOC toggle functions
     function showTOC() {
       let toc = document.getElementById("toc");
       toc.classList.remove("hidden");
@@ -402,21 +382,18 @@
     }
     document.getElementById("toggleTOC").addEventListener("click", function(){
       let toc = document.getElementById("toc");
-      if (toc.classList.contains("hidden")) {
-        showTOC();
-      } else {
-        hideTOC();
-      }
+      if (toc.classList.contains("hidden")) { showTOC(); }
+      else { hideTOC(); }
     });
     
-    document.getElementById("fileInput").addEventListener("change", function(e){
+    // File upload
+    document.getElementById("fileInput").addEventListener("change", function(e) {
       const file = e.target.files[0];
-      if (file) {
-        loadBook(file, file.name);
-      }
+      if (file) { loadBook(file, file.name); }
     });
     
-    document.getElementById("downloadEPUB").addEventListener("click", function(){
+    // Download (only for default "LeverAction.epub")
+    document.getElementById("downloadEPUB").addEventListener("click", function() {
       if (typeof currentFileName === "string" && currentFileName === "LeverAction.epub") {
         var link = document.createElement("a");
         link.href = currentFileName;
@@ -424,55 +401,53 @@
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-      } else {
-        alert("Download is only available for the default EPUB.");
-      }
+      } else { alert("Download is only available for the default EPUB."); }
     });
     
-    document.getElementById("toggleFullscreen").addEventListener("click", function(){
+    // Fullscreen toggle
+    document.getElementById("toggleFullscreen").addEventListener("click", function() {
       let elem = document.documentElement;
       if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-        if (elem.requestFullscreen) {
-          elem.requestFullscreen();
-        } else if (elem.webkitRequestFullscreen) {
-          elem.webkitRequestFullscreen();
-        } else {
-          alert("Fullscreen mode is not supported on your device.");
-        }
+        if (elem.requestFullscreen) { elem.requestFullscreen(); }
+        else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); }
+        else { alert("Fullscreen mode is not supported on your device."); }
       } else {
-        if (document.exitFullscreen) {
-          document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) {
-          document.webkitExitFullscreen();
-        }
+        if (document.exitFullscreen) { document.exitFullscreen(); }
+        else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); }
       }
     });
     
-    document.getElementById("increaseFont").addEventListener("click", function(){
+    // Text size adjustments
+    document.getElementById("increaseFont").addEventListener("click", function() {
       currentFontSize += 2;
       if (currentRendition && currentRendition.themes) {
         currentRendition.themes.fontSize(currentFontSize + "px");
       }
     });
-    document.getElementById("decreaseFont").addEventListener("click", function(){
+    document.getElementById("decreaseFont").addEventListener("click", function() {
       currentFontSize = Math.max(10, currentFontSize - 2);
       if (currentRendition && currentRendition.themes) {
         currentRendition.themes.fontSize(currentFontSize + "px");
       }
     });
     
-    // Global arrow key navigation (for when focus is not in EPUB content)
+    // Global arrow key navigation
     document.addEventListener("keydown", function(e) {
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
-      if (e.key === "ArrowLeft") {
-        if (currentRendition) currentRendition.prev();
-      } else if (e.key === "ArrowRight") {
-        if (currentRendition) currentRendition.next();
-      }
+      if (e.key === "ArrowLeft") { if (currentRendition) currentRendition.prev(); }
+      else if (e.key === "ArrowRight") { if (currentRendition) currentRendition.next(); }
     });
     
-    // Toggle toolbar visibility for mobile
-    document.getElementById("toggleToolbar").addEventListener("click", function(){
+    // Mobile overlay navigation buttons
+    document.getElementById("mobileNavLeft").addEventListener("click", function() {
+      if (currentRendition) currentRendition.prev();
+    });
+    document.getElementById("mobileNavRight").addEventListener("click", function() {
+      if (currentRendition) currentRendition.next();
+    });
+    
+    // Toggle toolbar for mobile
+    document.getElementById("toggleToolbar").addEventListener("click", function() {
       const toolbar = document.getElementById("toolbar");
       const reader = document.getElementById("reader");
       if (toolbar.classList.contains("hidden")) {
@@ -493,7 +468,7 @@
       }
     });
     
-    document.getElementById("showToolbarIcon").addEventListener("click", function(){
+    document.getElementById("showToolbarIcon").addEventListener("click", function() {
       const toolbar = document.getElementById("toolbar");
       const reader = document.getElementById("reader");
       toolbar.classList.remove("hidden");
@@ -508,7 +483,7 @@
     });
     
     // Toggle page mode (for desktop users)
-    document.getElementById("togglePageMode").addEventListener("click", function(){
+    document.getElementById("togglePageMode").addEventListener("click", function() {
       if (window.innerWidth < 769) {
         alert("Page mode toggle is available on desktop only.");
         return;
@@ -517,9 +492,7 @@
       const currentLocation = currentRendition.currentLocation();
       const cfi = currentLocation ? currentLocation.start.cfi : undefined;
       loadBook(currentFileName, currentFileName);
-      if (cfi) {
-        currentRendition.display(cfi);
-      }
+      if (cfi) { currentRendition.display(cfi); }
       if (onePageMode) {
         document.getElementById("reader").classList.add("one-page");
         setTimeout(scaleOnePageContent, 300);
@@ -534,15 +507,6 @@
       if (document.getElementById("reader").classList.contains("one-page")) {
         scaleOnePageContent();
       }
-    });
-    
-    // Mobile overlay navigation buttons
-    // These buttons allow navigation even when the toolbar is hidden.
-    document.getElementById("mobileNavLeft").addEventListener("click", function(){
-      if (currentRendition) currentRendition.prev();
-    });
-    document.getElementById("mobileNavRight").addEventListener("click", function(){
-      if (currentRendition) currentRendition.next();
     });
   </script>
 </body>
