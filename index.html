@@ -50,6 +50,7 @@
       gap: 10px;
       z-index: 1100;
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      flex-wrap: wrap;
     }
     .toolbar button,
     .toolbar label {
@@ -132,6 +133,7 @@
       overflow: auto;
       background: #fff;
       transition: margin-left 0.3s, margin-top 0.3s, height 0.3s;
+      font-size: 16px;
     }
     /* On desktop, if TOC is visible, push reader to right */
     @media (min-width: 769px) {
@@ -149,14 +151,19 @@
   </style>
 </head>
 <body>
-  <!-- Toolbar with navigation, theme toggle, TOC toggle, download button, file upload, and page info -->
+  <!-- Toolbar with navigation, theme toggle, TOC toggle, download, fullscreen, text size, file upload, and page info -->
   <div class="toolbar">
     <button id="prev">← Prev</button>
     <button id="next">Next →</button>
     <button id="toggleTheme">Toggle Theme</button>
     <button id="toggleTOC">☰ TOC</button>
-    <!-- Download button (only available for the default epub) -->
+    <!-- Download button (only available for the default EPUB) -->
     <button id="downloadEPUB">Download EPUB</button>
+    <!-- Fullscreen toggle -->
+    <button id="toggleFullscreen">Fullscreen</button>
+    <!-- Text size controls -->
+    <button id="decreaseFont">A–</button>
+    <button id="increaseFont">A+</button>
     <label for="fileInput">Upload EPUB</label>
     <input type="file" id="fileInput" accept=".epub">
     <span id="pageInfo">Page 0 of 0</span>
@@ -178,6 +185,8 @@
     // currentFileName will store the currently loaded EPUB.
     // For the default EPUB, this is "LeverAction.epub"
     let currentFileName = "";
+    // For text size adjustment
+    let currentFontSize = 16;
 
     function loadBook(source, fileName) {
       // Clean up any previously loaded book
@@ -318,6 +327,27 @@
       } else {
         alert("Download is only available for the default EPUB.");
       }
+    });
+    
+    // Fullscreen toggle event
+    document.getElementById("toggleFullscreen").addEventListener("click", function(){
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    });
+    
+    // Text size adjustment events
+    document.getElementById("increaseFont").addEventListener("click", function(){
+      currentFontSize += 2;
+      document.getElementById("reader").style.fontSize = currentFontSize + "px";
+    });
+    document.getElementById("decreaseFont").addEventListener("click", function(){
+      currentFontSize = Math.max(10, currentFontSize - 2);
+      document.getElementById("reader").style.fontSize = currentFontSize + "px";
     });
   </script>
 </body>
