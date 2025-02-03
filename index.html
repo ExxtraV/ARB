@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <!-- This viewport meta tag is crucial for mobile responsiveness -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mobile-Friendly EPUB Reader</title>
   <style>
     /* Base styles for light and dark themes */
@@ -39,6 +41,7 @@
     .toolbar label {
       padding: 5px 10px;
       cursor: pointer;
+      font-size: 1em;
     }
     /* Hide the actual file input and style its label */
     input[type="file"] {
@@ -56,13 +59,13 @@
       left: 0;
       bottom: 0;
       width: 250px;
-      background: #f0f0f0;
+      background: var(--bg-color);
       overflow-y: auto;
       padding: 10px;
       z-index: 1050;
       transition: transform 0.3s ease;
     }
-    /* By default, on mobile, hide the TOC off-screen */
+    /* Hide TOC by default on mobile (slide off screen) */
     #toc.hidden {
       transform: translateX(-260px);
     }
@@ -80,30 +83,31 @@
     }
     /* Reader container */
     #reader {
-      margin-top: 60px; /* leave space for the toolbar */
+      margin-top: 60px; /* reserve space for the toolbar */
       height: calc(100vh - 60px);
       overflow: auto;
       transition: margin-left 0.3s;
     }
-    /* Desktop layout: when TOC is visible, push the reader to the right */
+    /* On desktop, when TOC is visible, shift the reader to the right */
     #reader.with-toc {
       margin-left: 250px;
     }
-    /* Mobile styles (using media queries) */
+    /* Mobile-specific adjustments */
     @media (max-width: 768px) {
-      /* On mobile, the TOC becomes an overlay */
+      /* On mobile, TOC becomes an overlay */
       #toc {
         width: 80%;
         max-width: 300px;
         background: var(--bg-color);
         box-shadow: 2px 0 5px rgba(0,0,0,0.3);
       }
-      /* When TOC is shown on mobile, it overlays the content */
+      /* When TOC is shown on mobile, do not push the content */
       #reader.with-toc {
         margin-left: 0;
       }
-      /* Optionally hide some toolbar buttons on mobile to simplify */
-      .toolbar button:not(#toggleTOC) {
+      /* Adjust toolbar button sizes for mobile */
+      .toolbar button,
+      .toolbar label {
         font-size: 0.9em;
         padding: 5px;
       }
@@ -137,7 +141,7 @@
     let currentFileName = "";
 
     function loadBook(source, fileName) {
-      // Cleanup previous instance
+      // Cleanup previous instance if any
       if (currentRendition) {
         currentRendition.destroy();
         currentRendition = null;
@@ -164,7 +168,7 @@
         currentRendition.themes.select("default");
       }
       
-      // Load saved progress
+      // Load saved progress if any
       const savedLocation = localStorage.getItem("epub-location-" + fileName);
       currentRendition.display(savedLocation || undefined);
       
@@ -199,7 +203,7 @@
       });
     }
     
-    // Initial load of default book "test.epub"
+    // Load the default book "test.epub" (ensure it's in the same folder)
     loadBook("test.epub", "test.epub");
     
     // Navigation buttons
@@ -221,7 +225,6 @@
     // TOC toggle functionality
     function showTOC() {
       document.getElementById("toc").classList.remove("hidden");
-      // On desktop, optionally add a class to shift the reader; on mobile, overlay
       if(window.innerWidth > 768) {
         document.getElementById("reader").classList.add("with-toc");
       }
@@ -248,10 +251,8 @@
     });
     
     // --- Basic Swipe Detection for Mobile ---
-    // Variables to store touch positions
     let touchStartX = 0;
     let touchEndX = 0;
-    
     const readerElement = document.getElementById("reader");
     
     readerElement.addEventListener("touchstart", function(e) {
@@ -264,14 +265,11 @@
     });
     
     function handleGesture() {
-      // Detect swipe thresholds (e.g., 50px swipe distance)
       const swipeDistance = touchEndX - touchStartX;
       if(Math.abs(swipeDistance) > 50) {
         if(swipeDistance < 0) {
-          // Swiped left: Next page
           if(currentRendition) currentRendition.next();
         } else {
-          // Swiped right: Previous page
           if(currentRendition) currentRendition.prev();
         }
       }
