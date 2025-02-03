@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <!-- Responsive meta tag for mobile devices -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Modern EPUB Reader with Page Numbers</title>
+  <title>Lever Action with EPUB Download</title>
   <!-- Google Font for improved typography -->
   <link href="https://fonts.googleapis.com/css?family=Roboto:400,500&display=swap" rel="stylesheet">
   <style>
@@ -126,7 +126,6 @@
     }
     
     /* Reader container styling */
-    /* On desktop, leave 60px for the toolbar */
     #reader {
       margin-top: 60px; 
       height: calc(100vh - 60px);
@@ -140,7 +139,7 @@
         margin-left: 250px;
       }
     }
-    /* On mobile, increase top margin if needed (e.g., 80px instead of 60px) */
+    /* On mobile, increase top margin if needed */
     @media (max-width: 768px) {
       #reader {
         margin-top: 80px;
@@ -150,12 +149,14 @@
   </style>
 </head>
 <body>
-  <!-- Toolbar with navigation, theme toggle, TOC toggle, file upload, and page info -->
+  <!-- Toolbar with navigation, theme toggle, TOC toggle, download button, file upload, and page info -->
   <div class="toolbar">
     <button id="prev">← Prev</button>
     <button id="next">Next →</button>
     <button id="toggleTheme">Toggle Theme</button>
     <button id="toggleTOC">☰ TOC</button>
+    <!-- Download button (only available for the default epub) -->
+    <button id="downloadEPUB">Download EPUB</button>
     <label for="fileInput">Upload EPUB</label>
     <input type="file" id="fileInput" accept=".epub">
     <span id="pageInfo">Page 0 of 0</span>
@@ -174,6 +175,8 @@
   <script>
     let currentBook = null;
     let currentRendition = null;
+    // currentFileName will store the currently loaded EPUB.
+    // For the default EPUB, this is "LeverAction.epub"
     let currentFileName = "";
 
     function loadBook(source, fileName) {
@@ -253,8 +256,8 @@
       });
     }
     
-    // Load the default book "test.epub" (ensure it's in the same folder)
-    loadBook("test.epub", "test.epub");
+    // Load the default book "LeverAction.epub" (ensure it's in the same folder)
+    loadBook("LeverAction.epub", "LeverAction.epub");
     
     // Navigation button events
     document.getElementById("prev").addEventListener("click", function(){
@@ -299,6 +302,21 @@
       const file = e.target.files[0];
       if (file) {
         loadBook(file, file.name);
+      }
+    });
+    
+    // Download EPUB button event (only works for the default "LeverAction.epub")
+    document.getElementById("downloadEPUB").addEventListener("click", function(){
+      if (typeof currentFileName === "string" && currentFileName === "LeverAction.epub") {
+        // Create a temporary anchor element for download
+        var link = document.createElement("a");
+        link.href = currentFileName; // e.g., "LeverAction.epub"
+        link.download = currentFileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        alert("Download is only available for the default EPUB.");
       }
     });
   </script>
