@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>EPUB Reader with Upload</title>
+  <title>Mobile-Friendly EPUB Reader</title>
   <style>
     /* Base styles for light and dark themes */
     :root {
@@ -18,13 +18,14 @@
       background-color: var(--bg-color);
       color: var(--text-color);
       font-family: Arial, sans-serif;
+      overflow-x: hidden;
     }
     /* Toolbar styling */
     .toolbar {
       position: fixed;
       top: 0;
       left: 0;
-      width: 100%;
+      right: 0;
       background: var(--bg-color);
       color: var(--text-color);
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -32,42 +33,98 @@
       align-items: center;
       gap: 10px;
       padding: 10px;
-      z-index: 1000;
+      z-index: 1100;
     }
-    button {
+    .toolbar button,
+    .toolbar label {
       padding: 5px 10px;
       cursor: pointer;
     }
-    /* Hide the actual file input and style its label instead */
+    /* Hide the actual file input and style its label */
     input[type="file"] {
       display: none;
     }
     label[for="fileInput"] {
-      padding: 5px 10px;
       background: #007BFF;
       color: white;
       border-radius: 4px;
+    }
+    /* TOC styling */
+    #toc {
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 250px;
+      background: #f0f0f0;
+      overflow-y: auto;
+      padding: 10px;
+      z-index: 1050;
+      transition: transform 0.3s ease;
+    }
+    /* By default, on mobile, hide the TOC off-screen */
+    #toc.hidden {
+      transform: translateX(-260px);
+    }
+    #toc ul {
+      list-style: none;
+      padding: 0;
+    }
+    #toc li {
+      margin-bottom: 8px;
+    }
+    #toc a {
+      text-decoration: none;
+      color: #007BFF;
       cursor: pointer;
     }
     /* Reader container */
     #reader {
-      margin-top: 60px; /* space for the toolbar */
+      margin-top: 60px; /* leave space for the toolbar */
       height: calc(100vh - 60px);
       overflow: auto;
+      transition: margin-left 0.3s;
+    }
+    /* Desktop layout: when TOC is visible, push the reader to the right */
+    #reader.with-toc {
+      margin-left: 250px;
+    }
+    /* Mobile styles (using media queries) */
+    @media (max-width: 768px) {
+      /* On mobile, the TOC becomes an overlay */
+      #toc {
+        width: 80%;
+        max-width: 300px;
+        background: var(--bg-color);
+        box-shadow: 2px 0 5px rgba(0,0,0,0.3);
+      }
+      /* When TOC is shown on mobile, it overlays the content */
+      #reader.with-toc {
+        margin-left: 0;
+      }
+      /* Optionally hide some toolbar buttons on mobile to simplify */
+      .toolbar button:not(#toggleTOC) {
+        font-size: 0.9em;
+        padding: 5px;
+      }
     }
   </style>
 </head>
 <body>
-  <!-- Toolbar with navigation, dark mode toggle, and upload control -->
+  <!-- Toolbar with navigation, dark mode toggle, TOC toggle, and file upload -->
   <div class="toolbar">
-    <button id="prev">Previous</button>
+    <button id="prev">Prev</button>
     <button id="next">Next</button>
     <button id="toggleTheme">Toggle Theme</button>
+    <button id="toggleTOC">☰ TOC</button>
     <label for="fileInput">Upload EPUB</label>
     <input type="file" id="fileInput" accept=".epub">
   </div>
   
-  <!-- Container where the EPUB will be rendered -->
+  <!-- TOC Sidebar / Overlay -->
+  <div id="toc" class="hidden"></div>
+  
+  <!-- Reader Container -->
   <div id="reader"></div>
   
   <!-- Include JSZip (for archived EPUB files) and epub.js -->
@@ -75,71 +132,77 @@
   <script src="https://unpkg.com/epubjs/dist/epub.min.js"></script>
   
   <script>
-    // Global variables for tracking the current book and rendition
     let currentBook = null;
     let currentRendition = null;
     let currentFileName = "";
 
-    /**
-     * loadBook(source, fileName)
-     *   - source: either a URL string (for the default file) or a File object (for uploads).
-     *   - fileName: Identifier used for progress saving.
-     */
     function loadBook(source, fileName) {
-      // Clean up any previously loaded book
+      // Cleanup previous instance
       if (currentRendition) {
         currentRendition.destroy();
         currentRendition = null;
         document.getElementById("reader").innerHTML = "";
       }
-      
       currentFileName = fileName;
-      // Pass the source (URL or File) directly to ePub
       currentBook = ePub(source);
-      
-      // Render the book into the #reader element
       currentRendition = currentBook.renderTo("reader", {
         width: "100%",
         height: "100%"
       });
       
-      // Register a dark theme for EPUB content
+      // Register dark theme for EPUB content
       currentRendition.themes.register("dark", {
-        "body": {
-          "background": "#1e1e1e",
-          "color": "#f5f5f5"
-        },
-        "p": {
-          "color": "#f5f5f5"
-        },
-        "h1, h2, h3, h4, h5, h6": {
-          "color": "#f5f5f5"
-        }
+        "body": { "background": "#1e1e1e", "color": "#f5f5f5" },
+        "p": { "color": "#f5f5f5" },
+        "h1, h2, h3, h4, h5, h6": { "color": "#f5f5f5" }
       });
       
-      // Apply the current outer page theme to the EPUB content
-      if (document.body.classList.contains("dark")) {
+      // Apply active theme
+      if(document.body.classList.contains("dark")){
         currentRendition.themes.select("dark");
       } else {
         currentRendition.themes.select("default");
       }
       
-      // Load saved progress for this file (if any)
+      // Load saved progress
       const savedLocation = localStorage.getItem("epub-location-" + fileName);
       currentRendition.display(savedLocation || undefined);
       
-      // Listen for location changes to save progress
+      // Save progress on location change
       currentRendition.on("relocated", function(location) {
         localStorage.setItem("epub-location-" + fileName, location.start.cfi);
         console.log("Progress saved at:", location.start.cfi);
       });
+      
+      // Build dynamic Table of Contents (TOC)
+      currentBook.loaded.navigation.then(function(navigation) {
+        let tocElement = document.getElementById("toc");
+        tocElement.innerHTML = "";
+        let ul = document.createElement("ul");
+        navigation.toc.forEach(function(chapter) {
+          let li = document.createElement("li");
+          let a = document.createElement("a");
+          a.textContent = chapter.label;
+          a.href = chapter.href;
+          a.addEventListener("click", function(e) {
+            e.preventDefault();
+            currentRendition.display(chapter.href);
+            // Hide TOC on mobile after selection
+            if (window.innerWidth <= 768) {
+              hideTOC();
+            }
+          });
+          li.appendChild(a);
+          ul.appendChild(li);
+        });
+        tocElement.appendChild(ul);
+      });
     }
     
-    // Load the default book "test.epub" on page load.
-    // Ensure that test.epub is in the same folder as this HTML file.
+    // Initial load of default book "test.epub"
     loadBook("test.epub", "test.epub");
     
-    // Navigation button event listeners
+    // Navigation buttons
     document.getElementById("prev").addEventListener("click", function(){
       if (currentRendition) currentRendition.prev();
     });
@@ -147,26 +210,72 @@
       if (currentRendition) currentRendition.next();
     });
     
-    // Dark mode toggle event listener
+    // Theme toggle
     document.getElementById("toggleTheme").addEventListener("click", function(){
       document.body.classList.toggle("dark");
       if (currentRendition) {
-        if (document.body.classList.contains("dark")) {
-          currentRendition.themes.select("dark");
-        } else {
-          currentRendition.themes.select("default");
-        }
+        currentRendition.themes.select(document.body.classList.contains("dark") ? "dark" : "default");
       }
     });
     
-    // File upload event listener
+    // TOC toggle functionality
+    function showTOC() {
+      document.getElementById("toc").classList.remove("hidden");
+      // On desktop, optionally add a class to shift the reader; on mobile, overlay
+      if(window.innerWidth > 768) {
+        document.getElementById("reader").classList.add("with-toc");
+      }
+    }
+    function hideTOC() {
+      document.getElementById("toc").classList.add("hidden");
+      document.getElementById("reader").classList.remove("with-toc");
+    }
+    document.getElementById("toggleTOC").addEventListener("click", function(){
+      let toc = document.getElementById("toc");
+      if(toc.classList.contains("hidden")) {
+        showTOC();
+      } else {
+        hideTOC();
+      }
+    });
+    
+    // File upload functionality
     document.getElementById("fileInput").addEventListener("change", function(e){
       const file = e.target.files[0];
-      if (file) {
-        // Instead of creating a Blob URL, pass the File object directly
+      if(file){
         loadBook(file, file.name);
       }
     });
+    
+    // --- Basic Swipe Detection for Mobile ---
+    // Variables to store touch positions
+    let touchStartX = 0;
+    let touchEndX = 0;
+    
+    const readerElement = document.getElementById("reader");
+    
+    readerElement.addEventListener("touchstart", function(e) {
+      touchStartX = e.changedTouches[0].screenX;
+    });
+    
+    readerElement.addEventListener("touchend", function(e) {
+      touchEndX = e.changedTouches[0].screenX;
+      handleGesture();
+    });
+    
+    function handleGesture() {
+      // Detect swipe thresholds (e.g., 50px swipe distance)
+      const swipeDistance = touchEndX - touchStartX;
+      if(Math.abs(swipeDistance) > 50) {
+        if(swipeDistance < 0) {
+          // Swiped left: Next page
+          if(currentRendition) currentRendition.next();
+        } else {
+          // Swiped right: Previous page
+          if(currentRendition) currentRendition.prev();
+        }
+      }
+    }
   </script>
 </body>
 </html>
