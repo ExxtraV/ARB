@@ -30,7 +30,7 @@
       transition: background-color 0.3s, color 0.3s;
     }
     
-    /* Dark mode for body */
+    /* When in dark mode */
     body.dark {
       background-color: var(--bg-color-dark);
       color: var(--text-color-dark);
@@ -96,7 +96,7 @@
       background: var(--toc-bg-dark);
       color: var(--toc-text-dark);
     }
-    /* Hidden TOC */
+    /* When hidden */
     #toc.hidden {
       transform: translateX(-260px);
     }
@@ -126,17 +126,25 @@
     }
     
     /* Reader container styling */
+    /* On desktop, leave 60px for the toolbar */
     #reader {
-      margin-top: 60px; /* space for toolbar */
+      margin-top: 60px; 
       height: calc(100vh - 60px);
       overflow: auto;
       background: #fff;
-      transition: margin-left 0.3s;
+      transition: margin-left 0.3s, margin-top 0.3s, height 0.3s;
     }
-    /* On desktop, if TOC is visible, shift reader to right */
+    /* On desktop, if TOC is visible, push reader to right */
     @media (min-width: 769px) {
       #reader.with-toc {
         margin-left: 250px;
+      }
+    }
+    /* On mobile, increase top margin if needed (e.g., 80px instead of 60px) */
+    @media (max-width: 768px) {
+      #reader {
+        margin-top: 80px;
+        height: calc(100vh - 80px);
       }
     }
   </style>
@@ -200,16 +208,16 @@
       const savedLocation = localStorage.getItem("epub-location-" + fileName);
       currentRendition.display(savedLocation || undefined);
       
-      // Update page numbers when the location changes
+      // Update page numbers when location changes
       currentRendition.on("relocated", function(location) {
         localStorage.setItem("epub-location-" + fileName, location.start.cfi);
         if (currentBook.locations && currentBook.locations.total) {
-          var currentPage = currentBook.locations.locationFromCfi(location.start.cfi);
+          let currentPage = currentBook.locations.locationFromCfi(location.start.cfi);
           document.getElementById("pageInfo").textContent = "Page " + currentPage + " of " + currentBook.locations.total;
         }
       });
       
-      // Build the dynamic Table of Contents (TOC)
+      // Build dynamic Table of Contents (TOC)
       currentBook.loaded.navigation.then(function(navigation) {
         let tocElement = document.getElementById("toc");
         tocElement.innerHTML = "";
@@ -239,7 +247,7 @@
         // Update page info initially
         const currentLocation = currentRendition.currentLocation();
         if (currentLocation && currentBook.locations && currentBook.locations.total) {
-          var currentPage = currentBook.locations.locationFromCfi(currentLocation.start.cfi);
+          let currentPage = currentBook.locations.locationFromCfi(currentLocation.start.cfi);
           document.getElementById("pageInfo").textContent = "Page " + currentPage + " of " + currentBook.locations.total;
         }
       });
