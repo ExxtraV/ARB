@@ -63,11 +63,10 @@
       padding: 10px;
       z-index: 1050;
       transition: transform 0.3s ease;
-      /* By default, on desktop we show the TOC (if not hidden) */
+      /* Initially shown (if not hidden) on desktop */
       transform: translateX(0);
     }
-    /* When the TOC has the .hidden class */
-    /* For desktop: slide it partially off-screen */
+    /* When hidden */
     #toc.hidden {
       transform: translateX(-260px);
     }
@@ -132,7 +131,7 @@
     let currentFileName = "";
 
     function loadBook(source, fileName) {
-      // Clean up any previous instance
+      // Clean up any previously loaded book
       if (currentRendition) {
         currentRendition.destroy();
         currentRendition = null;
@@ -192,6 +191,27 @@
         });
         tocElement.appendChild(ul);
       });
+      
+      // --- Swipe Detection: Attach touch event listeners to the content ---
+      // This hook runs every time a section is rendered.
+      currentRendition.hooks.content.register(function(contents, rendition) {
+        let innerTouchStartX = 0, innerTouchEndX = 0;
+        // Use the content document's body for swipe detection
+        contents.document.body.addEventListener("touchstart", function(e) {
+          innerTouchStartX = e.changedTouches[0].screenX;
+        });
+        contents.document.body.addEventListener("touchend", function(e) {
+          innerTouchEndX = e.changedTouches[0].screenX;
+          let swipeDistance = innerTouchEndX - innerTouchStartX;
+          if (Math.abs(swipeDistance) > 50) {
+            if (swipeDistance < 0) {
+              rendition.next();
+            } else {
+              rendition.prev();
+            }
+          }
+        });
+      });
     }
     
     // Load the default book "test.epub" (ensure test.epub is in the same folder)
@@ -217,7 +237,6 @@
     function showTOC() {
       let toc = document.getElementById("toc");
       toc.classList.remove("hidden");
-      // On desktop, shift the reader content; on mobile, it's an overlay.
       if (window.innerWidth >= 769) {
         document.getElementById("reader").classList.add("with-toc");
       }
@@ -229,7 +248,7 @@
     }
     document.getElementById("toggleTOC").addEventListener("click", function(){
       let toc = document.getElementById("toc");
-      if(toc.classList.contains("hidden")) {
+      if (toc.classList.contains("hidden")) {
         showTOC();
       } else {
         hideTOC();
@@ -239,35 +258,10 @@
     // File upload functionality
     document.getElementById("fileInput").addEventListener("change", function(e){
       const file = e.target.files[0];
-      if(file){
+      if (file) {
         loadBook(file, file.name);
       }
     });
-    
-    // --- Basic Swipe Detection for Mobile ---
-    let touchStartX = 0;
-    let touchEndX = 0;
-    const readerElement = document.getElementById("reader");
-    
-    readerElement.addEventListener("touchstart", function(e) {
-      touchStartX = e.changedTouches[0].screenX;
-    });
-    
-    readerElement.addEventListener("touchend", function(e) {
-      touchEndX = e.changedTouches[0].screenX;
-      handleGesture();
-    });
-    
-    function handleGesture() {
-      const swipeDistance = touchEndX - touchStartX;
-      if(Math.abs(swipeDistance) > 50) {
-        if(swipeDistance < 0) {
-          if(currentRendition) currentRendition.next();
-        } else {
-          if(currentRendition) currentRendition.prev();
-        }
-      }
-    }
   </script>
 </body>
 </html>
