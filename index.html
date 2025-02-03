@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <!-- Responsive meta tag for mobile devices -->
+  <!-- Responsive meta tag -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lever Action with EPUB Download</title>
-  <!-- Google Font for improved typography -->
+  <!-- Google Font -->
   <link href="https://fonts.googleapis.com/css?family=Roboto:400,500&display=swap" rel="stylesheet">
   <style>
-    /* Global styles and CSS variables for TOC colors */
+    /* Global CSS variables for themes */
     :root {
       --bg-color-light: #f5f7fa;
       --text-color-light: #333;
@@ -21,17 +21,17 @@
       --toc-text-dark: #f5f5f5;
     }
     
-    body {
+    /* Ensure both html and body are styled */
+    html, body {
       margin: 0;
+      padding: 0;
       font-family: 'Roboto', sans-serif;
       background-color: var(--bg-color-light);
       color: var(--text-color-light);
       overflow-x: hidden;
       transition: background-color 0.3s, color 0.3s;
     }
-    
-    /* When in dark mode */
-    body.dark {
+    html.dark, body.dark {
       background-color: var(--bg-color-dark);
       color: var(--text-color-dark);
     }
@@ -48,13 +48,13 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      flex-wrap: wrap;
       z-index: 1100;
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      flex-wrap: wrap;
     }
     .toolbar button,
     .toolbar label {
-      background: rgba(255, 255, 255, 0.2);
+      background: rgba(255,255,255,0.2);
       border: none;
       padding: 8px 12px;
       border-radius: 4px;
@@ -64,19 +64,17 @@
     }
     .toolbar button:hover,
     .toolbar label:hover {
-      background: rgba(255, 255, 255, 0.3);
+      background: rgba(255,255,255,0.3);
     }
-    /* Hide the file input */
     input[type="file"] {
       display: none;
     }
-    /* Page number info in the toolbar */
     #pageInfo {
       margin-left: auto;
       font-weight: 500;
     }
     
-    /* Table of Contents (TOC) styling */
+    /* TOC styling */
     #toc {
       position: fixed;
       top: 60px; /* below toolbar */
@@ -92,16 +90,13 @@
       transition: transform 0.3s ease, background 0.3s, color 0.3s;
       transform: translateX(0);
     }
-    /* TOC dark mode */
     body.dark #toc {
       background: var(--toc-bg-dark);
       color: var(--toc-text-dark);
     }
-    /* When hidden */
     #toc.hidden {
       transform: translateX(-260px);
     }
-    /* Mobile: completely hide TOC off-screen */
     @media (max-width: 768px) {
       #toc.hidden {
         transform: translateX(-100%);
@@ -128,20 +123,21 @@
     
     /* Reader container styling */
     #reader {
-      margin-top: 60px; 
+      margin-top: 60px;
       height: calc(100vh - 60px);
       overflow: auto;
       background: #fff;
       transition: margin-left 0.3s, margin-top 0.3s, height 0.3s;
       font-size: 16px;
     }
-    /* On desktop, if TOC is visible, push reader to right */
+    body.dark #reader {
+      background: var(--bg-color-dark);
+    }
     @media (min-width: 769px) {
       #reader.with-toc {
         margin-left: 250px;
       }
     }
-    /* On mobile, increase top margin if needed */
     @media (max-width: 768px) {
       #reader {
         margin-top: 80px;
@@ -157,11 +153,8 @@
     <button id="next">Next →</button>
     <button id="toggleTheme">Toggle Theme</button>
     <button id="toggleTOC">☰ TOC</button>
-    <!-- Download button (only available for the default EPUB) -->
     <button id="downloadEPUB">Download EPUB</button>
-    <!-- Fullscreen toggle -->
     <button id="toggleFullscreen">Fullscreen</button>
-    <!-- Text size controls -->
     <button id="decreaseFont">A–</button>
     <button id="increaseFont">A+</button>
     <label for="fileInput">Upload EPUB</label>
@@ -178,18 +171,15 @@
   <!-- Include JSZip and epub.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
   <script src="https://unpkg.com/epubjs/dist/epub.min.js"></script>
-  
   <script>
     let currentBook = null;
     let currentRendition = null;
-    // currentFileName will store the currently loaded EPUB.
-    // For the default EPUB, this is "LeverAction.epub"
+    // For the default EPUB, currentFileName is "LeverAction.epub"
     let currentFileName = "";
-    // For text size adjustment
+    // Starting font size in pixels (for EPUB content)
     let currentFontSize = 16;
-
+    
     function loadBook(source, fileName) {
-      // Clean up any previously loaded book
       if (currentRendition) {
         currentRendition.destroy();
         currentRendition = null;
@@ -202,6 +192,9 @@
         height: "100%"
       });
       
+      // Set initial font size using epub.js theme functionality
+      currentRendition.themes.fontSize(currentFontSize + "px");
+      
       // Register a dark theme for EPUB content
       currentRendition.themes.register("dark", {
         "body": { "background": "#1e1e1e", "color": "#f5f5f5" },
@@ -209,18 +202,15 @@
         "h1, h2, h3, h4, h5, h6": { "color": "#f5f5f5" }
       });
       
-      // Apply the current theme to EPUB content
-      if(document.body.classList.contains("dark")){
+      if (document.body.classList.contains("dark")) {
         currentRendition.themes.select("dark");
       } else {
         currentRendition.themes.select("default");
       }
       
-      // Display saved progress (if available)
       const savedLocation = localStorage.getItem("epub-location-" + fileName);
       currentRendition.display(savedLocation || undefined);
       
-      // Update page numbers when location changes
       currentRendition.on("relocated", function(location) {
         localStorage.setItem("epub-location-" + fileName, location.start.cfi);
         if (currentBook.locations && currentBook.locations.total) {
@@ -229,7 +219,6 @@
         }
       });
       
-      // Build dynamic Table of Contents (TOC)
       currentBook.loaded.navigation.then(function(navigation) {
         let tocElement = document.getElementById("toc");
         tocElement.innerHTML = "";
@@ -252,23 +241,35 @@
         tocElement.appendChild(ul);
       });
       
-      // Generate locations for pagination (using 1600 characters per location)
       currentBook.ready.then(function(){
         return currentBook.locations.generate(1600);
       }).then(function(){
-        // Update page info initially
         const currentLocation = currentRendition.currentLocation();
         if (currentLocation && currentBook.locations && currentBook.locations.total) {
           let currentPage = currentBook.locations.locationFromCfi(currentLocation.start.cfi);
           document.getElementById("pageInfo").textContent = "Page " + currentPage + " of " + currentBook.locations.total;
         }
       });
+      
+      // Register keydown events on the EPUB content via the hook
+      currentRendition.hooks.content.register(function(contents, rendition) {
+        // Ensure the content is focusable and focused
+        const doc = contents.document;
+        doc.body.setAttribute("tabindex", "0");
+        doc.body.focus();
+        doc.addEventListener("keydown", function(e) {
+          if (e.key === "ArrowLeft") {
+            rendition.prev();
+          } else if (e.key === "ArrowRight") {
+            rendition.next();
+          }
+        });
+      });
     }
     
-    // Load the default book "LeverAction.epub" (ensure it's in the same folder)
+    // Load the default book "LeverAction.epub"
     loadBook("LeverAction.epub", "LeverAction.epub");
     
-    // Navigation button events
     document.getElementById("prev").addEventListener("click", function(){
       if (currentRendition) currentRendition.prev();
     });
@@ -276,7 +277,6 @@
       if (currentRendition) currentRendition.next();
     });
     
-    // Theme toggle event
     document.getElementById("toggleTheme").addEventListener("click", function(){
       document.body.classList.toggle("dark");
       if (currentRendition) {
@@ -284,7 +284,6 @@
       }
     });
     
-    // TOC toggle functions
     function showTOC() {
       let toc = document.getElementById("toc");
       toc.classList.remove("hidden");
@@ -306,7 +305,6 @@
       }
     });
     
-    // File upload event
     document.getElementById("fileInput").addEventListener("change", function(e){
       const file = e.target.files[0];
       if (file) {
@@ -314,12 +312,10 @@
       }
     });
     
-    // Download EPUB button event (only works for the default "LeverAction.epub")
     document.getElementById("downloadEPUB").addEventListener("click", function(){
       if (typeof currentFileName === "string" && currentFileName === "LeverAction.epub") {
-        // Create a temporary anchor element for download
         var link = document.createElement("a");
-        link.href = currentFileName; // e.g., "LeverAction.epub"
+        link.href = currentFileName;
         link.download = currentFileName;
         document.body.appendChild(link);
         link.click();
@@ -329,25 +325,47 @@
       }
     });
     
-    // Fullscreen toggle event
     document.getElementById("toggleFullscreen").addEventListener("click", function(){
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
+      let elem = document.documentElement;
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        if (elem.requestFullscreen) {
+          elem.requestFullscreen();
+        } else if (elem.webkitRequestFullscreen) {
+          elem.webkitRequestFullscreen();
+        } else {
+          alert("Fullscreen mode is not supported on your device.");
+        }
       } else {
         if (document.exitFullscreen) {
           document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
         }
       }
     });
     
-    // Text size adjustment events
     document.getElementById("increaseFont").addEventListener("click", function(){
       currentFontSize += 2;
-      document.getElementById("reader").style.fontSize = currentFontSize + "px";
+      if (currentRendition && currentRendition.themes) {
+        currentRendition.themes.fontSize(currentFontSize + "px");
+      }
     });
     document.getElementById("decreaseFont").addEventListener("click", function(){
       currentFontSize = Math.max(10, currentFontSize - 2);
-      document.getElementById("reader").style.fontSize = currentFontSize + "px";
+      if (currentRendition && currentRendition.themes) {
+        currentRendition.themes.fontSize(currentFontSize + "px");
+      }
+    });
+    
+    // Global arrow key navigation (for when focus is not in the content)
+    document.addEventListener("keydown", function(e) {
+      // Ignore if focus is on an input
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+      if (e.key === "ArrowLeft") {
+        if (currentRendition) currentRendition.prev();
+      } else if (e.key === "ArrowRight") {
+        if (currentRendition) currentRendition.next();
+      }
     });
   </script>
 </body>
