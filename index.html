@@ -21,7 +21,7 @@
       --toc-text-dark: #f5f5f5;
     }
     
-    /* Ensure both html and body are styled */
+    /* Style both html and body */
     html, body {
       margin: 0;
       padding: 0;
@@ -51,6 +51,9 @@
       flex-wrap: wrap;
       z-index: 1100;
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .toolbar.hidden {
+      display: none;
     }
     .toolbar button,
     .toolbar label {
@@ -139,16 +142,40 @@
       }
     }
     @media (max-width: 768px) {
+      /* When toolbar is visible on mobile, use 80px; when hidden, occupy full screen */
       #reader {
         margin-top: 80px;
         height: calc(100vh - 80px);
       }
+      #reader.no-toolbar {
+        margin-top: 0;
+        height: 100vh;
+      }
+    }
+    
+    /* One-page mode styling */
+    /* When one-page mode is active, we center the content */
+    #reader.one-page {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    /* The rendered content (typically in an iframe or a container with class 'epub-view') */
+    #reader.one-page iframe,
+    #reader.one-page .epub-view {
+      /* Base dimensions representing a realistic page */
+      width: 600px;
+      height: 800px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      transform-origin: center center;
     }
   </style>
 </head>
 <body>
-  <!-- Toolbar with navigation, theme toggle, TOC toggle, download, fullscreen, text size, file upload, and page info -->
-  <div class="toolbar">
+  <!-- Toolbar -->
+  <div class="toolbar" id="toolbar">
     <button id="prev">← Prev</button>
     <button id="next">Next →</button>
     <button id="toggleTheme">Toggle Theme</button>
@@ -157,10 +184,15 @@
     <button id="toggleFullscreen">Fullscreen</button>
     <button id="decreaseFont">A–</button>
     <button id="increaseFont">A+</button>
+    <button id="toggleToolbar">Toggle Menu</button>
+    <button id="togglePageMode">Toggle Page Mode</button>
     <label for="fileInput">Upload EPUB</label>
     <input type="file" id="fileInput" accept=".epub">
     <span id="pageInfo">Page 0 of 0</span>
   </div>
+  
+  <!-- Icon to show toolbar when hidden -->
+  <div id="showToolbarIcon" style="display:none;">☰</div>
   
   <!-- TOC Sidebar -->
   <div id="toc" class="hidden"></div>
@@ -178,6 +210,8 @@
     let currentFileName = "";
     // Starting font size in pixels (for EPUB content)
     let currentFontSize = 16;
+    // Page mode flag: false = spread mode, true = one-page mode
+    let onePageMode = false;
     
     function loadBook(source, fileName) {
       if (currentRendition) {
@@ -187,12 +221,30 @@
       }
       currentFileName = fileName;
       currentBook = ePub(source);
-      currentRendition = currentBook.renderTo("reader", {
-        width: "100%",
-        height: "100%"
-      });
       
-      // Set initial font size using epub.js theme functionality
+      // Set render options:
+      let renderOptions = { width: "100%", height: "100%" };
+      // Force one-page mode on mobile
+      if (window.innerWidth <= 768) {
+        renderOptions.spread = "none";
+      }
+      // For desktop, if onePageMode is toggled, set spread to "none"
+      else if (onePageMode) {
+        renderOptions.spread = "none";
+      }
+      
+      currentRendition = currentBook.renderTo("reader", renderOptions);
+      
+      // Apply one-page styling if active or on mobile
+      if (onePageMode || window.innerWidth <= 768) {
+        document.getElementById("reader").classList.add("one-page");
+        // After a short delay, scale the content to fit the viewport
+        setTimeout(scaleOnePageContent, 300);
+      } else {
+        document.getElementById("reader").classList.remove("one-page");
+      }
+      
+      // Set initial font size via epub.js theme
       currentRendition.themes.fontSize(currentFontSize + "px");
       
       // Register a dark theme for EPUB content
@@ -251,9 +303,8 @@
         }
       });
       
-      // Register keydown events on the EPUB content via the hook
+      // Register keydown events inside EPUB content so arrow keys work when focus is inside.
       currentRendition.hooks.content.register(function(contents, rendition) {
-        // Ensure the content is focusable and focused
         const doc = contents.document;
         doc.body.setAttribute("tabindex", "0");
         doc.body.focus();
@@ -265,6 +316,23 @@
           }
         });
       });
+    }
+    
+    // Function to scale one-page mode content responsively.
+    function scaleOnePageContent() {
+      // Try to select the iframe or content element rendered by epub.js.
+      const container = document.querySelector("#reader.one-page iframe, #reader.one-page .epub-view");
+      if (!container) return;
+      // Base dimensions
+      const baseWidth = 600;
+      const baseHeight = 800;
+      // Get available viewport dimensions (minus some margin)
+      const viewportWidth = window.innerWidth * 0.9; // use 90% of viewport width
+      const viewportHeight = window.innerHeight * 0.9; // use 90% of viewport height
+      // Compute scale factor
+      const scale = Math.min(viewportWidth / baseWidth, viewportHeight / baseHeight, 1);
+      container.style.transform = "scale(" + scale + ")";
+      container.style.transformOrigin = "center center";
     }
     
     // Load the default book "LeverAction.epub"
@@ -357,14 +425,80 @@
       }
     });
     
-    // Global arrow key navigation (for when focus is not in the content)
+    // Global arrow key navigation (for when focus is not in the EPUB content)
     document.addEventListener("keydown", function(e) {
-      // Ignore if focus is on an input
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
       if (e.key === "ArrowLeft") {
         if (currentRendition) currentRendition.prev();
       } else if (e.key === "ArrowRight") {
         if (currentRendition) currentRendition.next();
+      }
+    });
+    
+    // Toggle toolbar (top menu) visibility for mobile
+    document.getElementById("toggleToolbar").addEventListener("click", function(){
+      const toolbar = document.getElementById("toolbar");
+      const reader = document.getElementById("reader");
+      if (toolbar.classList.contains("hidden")) {
+        toolbar.classList.remove("hidden");
+        if (window.innerWidth <= 768) {
+          reader.style.marginTop = "80px";
+          reader.style.height = "calc(100vh - 80px)";
+        } else {
+          reader.style.marginTop = "60px";
+          reader.style.height = "calc(100vh - 60px)";
+        }
+        document.getElementById("showToolbarIcon").style.display = "none";
+      } else {
+        toolbar.classList.add("hidden");
+        reader.style.marginTop = "0";
+        reader.style.height = "100vh";
+        document.getElementById("showToolbarIcon").style.display = "block";
+      }
+    });
+    
+    document.getElementById("showToolbarIcon").addEventListener("click", function(){
+      const toolbar = document.getElementById("toolbar");
+      const reader = document.getElementById("reader");
+      toolbar.classList.remove("hidden");
+      if (window.innerWidth <= 768) {
+        reader.style.marginTop = "80px";
+        reader.style.height = "calc(100vh - 80px)";
+      } else {
+        reader.style.marginTop = "60px";
+        reader.style.height = "calc(100vh - 60px)";
+      }
+      this.style.display = "none";
+    });
+    
+    // Toggle page mode (for desktop users)
+    document.getElementById("togglePageMode").addEventListener("click", function(){
+      if (window.innerWidth < 769) {
+        alert("Page mode toggle is available on desktop only.");
+        return;
+      }
+      onePageMode = !onePageMode;
+      // Save current location
+      const currentLocation = currentRendition.currentLocation();
+      const cfi = currentLocation ? currentLocation.start.cfi : undefined;
+      // Reload the book with updated render options
+      loadBook(currentFileName, currentFileName);
+      if (cfi) {
+        currentRendition.display(cfi);
+      }
+      if (onePageMode) {
+        document.getElementById("reader").classList.add("one-page");
+        setTimeout(scaleOnePageContent, 300);
+      } else {
+        document.getElementById("reader").classList.remove("one-page");
+      }
+      alert("Page mode is now set to " + (onePageMode ? "One Page (Centered)" : "Spread Mode") + ".");
+    });
+    
+    // On window resize, if in one-page mode, recalculate scaling.
+    window.addEventListener("resize", function() {
+      if (document.getElementById("reader").classList.contains("one-page")) {
+        scaleOnePageContent();
       }
     });
   </script>
