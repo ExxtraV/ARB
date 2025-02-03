@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <!-- This viewport meta tag is crucial for mobile responsiveness -->
+  <!-- Ensure proper scaling on mobile -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mobile-Friendly EPUB Reader</title>
   <style>
@@ -43,7 +43,6 @@
       cursor: pointer;
       font-size: 1em;
     }
-    /* Hide the actual file input and style its label */
     input[type="file"] {
       display: none;
     }
@@ -64,10 +63,20 @@
       padding: 10px;
       z-index: 1050;
       transition: transform 0.3s ease;
+      /* By default, on desktop we show the TOC (if not hidden) */
+      transform: translateX(0);
     }
-    /* Hide TOC by default on mobile (slide off screen) */
+    /* When the TOC has the .hidden class */
+    /* For desktop: slide it partially off-screen */
     #toc.hidden {
       transform: translateX(-260px);
+    }
+    /* Mobile adjustments: completely hide the TOC and disable pointer events */
+    @media (max-width: 768px) {
+      #toc.hidden {
+        transform: translateX(-100%);
+        pointer-events: none;
+      }
     }
     #toc ul {
       list-style: none;
@@ -88,28 +97,10 @@
       overflow: auto;
       transition: margin-left 0.3s;
     }
-    /* On desktop, when TOC is visible, shift the reader to the right */
-    #reader.with-toc {
-      margin-left: 250px;
-    }
-    /* Mobile-specific adjustments */
-    @media (max-width: 768px) {
-      /* On mobile, TOC becomes an overlay */
-      #toc {
-        width: 80%;
-        max-width: 300px;
-        background: var(--bg-color);
-        box-shadow: 2px 0 5px rgba(0,0,0,0.3);
-      }
-      /* When TOC is shown on mobile, do not push the content */
+    /* On desktop, if TOC is visible, push the reader */
+    @media (min-width: 769px) {
       #reader.with-toc {
-        margin-left: 0;
-      }
-      /* Adjust toolbar button sizes for mobile */
-      .toolbar button,
-      .toolbar label {
-        font-size: 0.9em;
-        padding: 5px;
+        margin-left: 250px;
       }
     }
   </style>
@@ -125,7 +116,7 @@
     <input type="file" id="fileInput" accept=".epub">
   </div>
   
-  <!-- TOC Sidebar / Overlay -->
+  <!-- TOC Sidebar / Overlay; default is hidden -->
   <div id="toc" class="hidden"></div>
   
   <!-- Reader Container -->
@@ -141,7 +132,7 @@
     let currentFileName = "";
 
     function loadBook(source, fileName) {
-      // Cleanup previous instance if any
+      // Clean up any previous instance
       if (currentRendition) {
         currentRendition.destroy();
         currentRendition = null;
@@ -161,14 +152,14 @@
         "h1, h2, h3, h4, h5, h6": { "color": "#f5f5f5" }
       });
       
-      // Apply active theme
+      // Apply the currently active theme
       if(document.body.classList.contains("dark")){
         currentRendition.themes.select("dark");
       } else {
         currentRendition.themes.select("default");
       }
       
-      // Load saved progress if any
+      // Load saved progress (if any)
       const savedLocation = localStorage.getItem("epub-location-" + fileName);
       currentRendition.display(savedLocation || undefined);
       
@@ -178,7 +169,7 @@
         console.log("Progress saved at:", location.start.cfi);
       });
       
-      // Build dynamic Table of Contents (TOC)
+      // Build the dynamic Table of Contents (TOC)
       currentBook.loaded.navigation.then(function(navigation) {
         let tocElement = document.getElementById("toc");
         tocElement.innerHTML = "";
@@ -191,7 +182,7 @@
           a.addEventListener("click", function(e) {
             e.preventDefault();
             currentRendition.display(chapter.href);
-            // Hide TOC on mobile after selection
+            // On mobile, hide the TOC after selection
             if (window.innerWidth <= 768) {
               hideTOC();
             }
@@ -203,7 +194,7 @@
       });
     }
     
-    // Load the default book "test.epub" (ensure it's in the same folder)
+    // Load the default book "test.epub" (ensure test.epub is in the same folder)
     loadBook("test.epub", "test.epub");
     
     // Navigation buttons
@@ -214,7 +205,7 @@
       if (currentRendition) currentRendition.next();
     });
     
-    // Theme toggle
+    // Dark mode toggle
     document.getElementById("toggleTheme").addEventListener("click", function(){
       document.body.classList.toggle("dark");
       if (currentRendition) {
@@ -222,15 +213,18 @@
       }
     });
     
-    // TOC toggle functionality
+    // TOC toggle functions
     function showTOC() {
-      document.getElementById("toc").classList.remove("hidden");
-      if(window.innerWidth > 768) {
+      let toc = document.getElementById("toc");
+      toc.classList.remove("hidden");
+      // On desktop, shift the reader content; on mobile, it's an overlay.
+      if (window.innerWidth >= 769) {
         document.getElementById("reader").classList.add("with-toc");
       }
     }
     function hideTOC() {
-      document.getElementById("toc").classList.add("hidden");
+      let toc = document.getElementById("toc");
+      toc.classList.add("hidden");
       document.getElementById("reader").classList.remove("with-toc");
     }
     document.getElementById("toggleTOC").addEventListener("click", function(){
