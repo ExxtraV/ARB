@@ -150,51 +150,65 @@
       transform-origin: center center;
     }
     
-    /* ---------------------------- */
-    /* Bookmark Manager Modal */
-    /* ---------------------------- */
-    #bookmarkManager {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.5);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 1300;
-    }
-    #bookmarkManager .content {
-      background: #fff;
-      padding: 20px;
-      border-radius: 4px;
-      max-width: 90%;
-      max-height: 90%;
-      overflow-y: auto;
-    }
-    html.dark #bookmarkManager .content {
-      background: var(--bg-color-dark);
-      color: var(--text-color-dark);
-    }
-    #bookmarkManager h2 { margin-top: 0; }
-    .bookmark-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #ccc;
-      padding: 5px 0;
-    }
-    .bookmark-item:last-child { border-bottom: none; }
-    .bookmark-item button {
-      margin-left: 10px;
-      background: var(--accent-color);
-      color: #fff;
-      border: none;
-      padding: 4px 8px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
+/* Bookmark Manager Modal */
+#bookmarkManager {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1300;
+}
+
+#bookmarkManager .content {
+  background: #fff;
+  color: #333;
+  padding: 20px;
+  border-radius: 4px;
+  max-width: 90%;
+  max-height: 90%;
+  overflow-y: auto;
+  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+}
+
+/* Dark mode overrides for the bookmark manager */
+html.dark #bookmarkManager .content,
+body.dark #bookmarkManager .content,
+html.dark body.dark #bookmarkManager .content {
+  background: #2e2e2e !important;  /* Dark gray background */
+  color: #ffffff !important;       /* White text */
+  box-shadow: 0 0 15px rgba(255,255,255,0.2) !important;
+}
+
+#bookmarkManager h2 { 
+  margin-top: 0; 
+}
+
+.bookmark-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #ccc;
+  padding: 5px 0;
+}
+
+.bookmark-item:last-child { 
+  border-bottom: none; 
+}
+
+.bookmark-item button {
+  margin-left: 10px;
+  background: var(--accent-color);
+  color: #fff;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
     
     /* ---------------------------- */
     /* Mobile Overlay Navigation */
