@@ -35,25 +35,8 @@ You can try the live reader at: [https://read.reapersbounty.com](https://read.re
 Try the Lever Action EPUB Reader live at:  
 [https://read.reapersbounty.com](https://read.reapersbounty.com)
 
-## Installation
-
-To run this project locally:
-
-1. **Clone the Repository:**
-
-   ```bash
-   git clone https://github.com/ExxtraV/ARB.git
-   cd ARB
-   ```
-
-2.	**Open the Project:**
-Open the index.html file in your browser. Alternatively, serve the files using a local HTTP server (e.g., using http-server):
-```bash
-npx http-server .
-```
-
-3.	**PWA Installation:**
-When you visit the site in a supported browser (such as Chrome or Edge), you’ll be prompted to install the app on your mobile device, providing an app-like experience.
+**PWA Installation:**
+When you visit the site in a supported browser (such as Chrome or Edge) on your mobile device, you can install the app or add app to home screen.
 
 Project Structure
 
