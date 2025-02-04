@@ -6,6 +6,8 @@
 
 You can try the live reader at: [https://read.reapersbounty.com](https://read.reapersbounty.com)
 
+### Feel free to [Download LeverAction.epub](https://github.com/ExxtraV/ARB/raw/main/LeverAction.epub) here!
+
 ## Features
 
 - **Responsive EPUB Reading:**  
