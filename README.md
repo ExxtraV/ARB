@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**ARB** is a dedicated EPUB reader for reading **"Lever Action"** on the web and mobile devices. It provides a seamless reading experience with features such as offline support via a Progressive Web App (PWA), customizable themes, bookmarking, and progress tracking. Users can also install the app on their phones for a native app-like experience.
+**ARB** is a dedicated EPUB reader for reading **"Lever Action"** on the web and mobile devices. It provides a seamless reading experience with features such as offline support via a Progressive Web App (PWA), themes, bookmarking, and progress tracking. Users can also install the app on their phones for a native app-like experience.
 
 You can try the live reader at: [https://read.reapersbounty.com](https://read.reapersbounty.com)
 
@@ -17,7 +17,7 @@ You can try the live reader at: [https://read.reapersbounty.com](https://read.re
   Install the app on your phone for an app-like experience, complete with offline support via service worker caching.
 
 - **EPUB Navigation:**  
-  - Smooth page navigation via arrow keys, touch controls, and mobile overlay buttons.
+  - Smooth page navigation via arrow keys and mobile overlay buttons.
   - Toggle between one-page (centered) mode and a two-page spread on desktop.
 
 - **Bookmarking & Progress Tracking:**  
