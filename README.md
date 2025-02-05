@@ -68,3 +68,11 @@ This project is licensed under the MIT License.
 Contact
 
 For questions, suggestions, or further assistance, please open an issue on this repository or contact ExxtraV.
+
+<hr>
+
+### AI-Generated Code Disclaimer
+
+This project was largely developed using ChatGPT, an AI language model. Most of the code was generated and troubleshooted by ChatGPT with minimal manual modifications. While I have reviewed the general functionality, I do not fully understand all aspects of the code.
+
+If you notice any issues or have suggestions for improvement, feel free to open an issue or submit a pull request. Your contributions and explanations are greatly appreciated!
