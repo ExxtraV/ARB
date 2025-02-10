@@ -2,9 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <!-- PWA Manifest & Mobile Home Screen Meta -->
   <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lever Action EPUB Reader</title>
+  <!-- Inline script to immediately set dark mode if stored -->
+  <script>
+    if (localStorage.getItem('theme') === 'dark') {
+      document.documentElement.classList.add('dark');
+    }
+  </script>
   <!-- Google Font: Roboto -->
   <link href="https://fonts.googleapis.com/css?family=Roboto:400,500&display=swap" rel="stylesheet">
   <!-- Font Awesome for Icons -->
@@ -82,7 +92,7 @@
       border-radius: 4px;
       margin-bottom: 10px;
       object-fit: cover;
-      max-height: 200px;  /* Ensures a uniform display */
+      max-height: 200px;
     }
     
     /* -------------------------- */
@@ -152,6 +162,7 @@
       transition: left 0.3s ease;
       font-size: 16px;
     }
+    /* If dark mode, force dark background immediately */
     html.dark #reader {
       background: var(--bg-color-dark);
     }
@@ -289,31 +300,75 @@
       #reader {
         left: 0;
       }
-      /* Show the mobile navigation overlay */
-      #mobileNav {
+      /* Show the mobile bottom navigation bar */
+      #mobileNavBar {
         display: flex;
       }
     }
-    /* Mobile navigation overlay (bottom centered) */
-    #mobileNav {
+    /* Mobile bottom navigation bar */
+    #mobileNavBar {
+      display: none; /* shown via media query */
       position: fixed;
-      bottom: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.5);
-      padding: 10px;
-      border-radius: 20px;
-      gap: 20px;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0,0,0,0.7);
+      justify-content: space-around;
+      padding: 10px 0;
       z-index: 1200;
-      display: none; /* default hidden; shown on mobile */
     }
-    #mobileNav button {
-      background: rgba(255,255,255,0.8);
+    #mobileNavBar button {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 24px;
+      cursor: pointer;
+    }
+    /* Mobile Menu Modal (for additional controls) */
+    #mobileMenu {
+      display: none; /* hidden by default */
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #fff;
+      padding: 20px;
+      z-index: 1300;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.3);
+    }
+    #mobileMenu .mobileMenuContent {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+    #mobileMenu button {
+      background: #eee;
       border: none;
       padding: 10px;
-      border-radius: 50%;
-      font-size: 20px;
+      border-radius: 4px;
+      font-size: 18px;
       cursor: pointer;
+    }
+    /* On-screen mobile page turning buttons (left/right sides) */
+    .mobile-nav {
+      position: fixed;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(0,0,0,0.5);
+      padding: 10px;
+      border-radius: 50%;
+      color: #fff;
+      font-size: 24px;
+      z-index: 1200;
+      display: none;
+    }
+    #mobileNavLeft { left: 10px; }
+    #mobileNavRight { right: 10px; }
+    @media (max-width: 768px) {
+      .mobile-nav {
+        display: block;
+      }
     }
   </style>
 </head>
@@ -328,7 +383,6 @@
   <div id="sidebar" class="retracted">
     <button id="sidebarToggle"><i class="fas fa-chevron-right"></i></button>
     <div id="sidebarContent">
-      <!-- Navigation arrows now use left/right icons -->
       <button id="prev" title="Previous Page"><i class="fas fa-chevron-left"></i></button>
       <button id="next" title="Next Page"><i class="fas fa-chevron-right"></i></button>
       <button id="toggleTheme" title="Toggle Theme"><i class="fas fa-adjust"></i></button>
@@ -346,11 +400,32 @@
     </div>
   </div>
   
-  <!-- Mobile Navigation Overlay -->
-  <div id="mobileNav" class="hidden">
-    <button id="mobilePrev" title="Previous Page"><i class="fas fa-chevron-left"></i></button>
-    <button id="mobileNext" title="Next Page"><i class="fas fa-chevron-right"></i></button>
+  <!-- Mobile Bottom Navigation Bar -->
+  <div id="mobileNavBar">
+    <button id="mPrev" title="Previous Page"><i class="fas fa-chevron-left"></i></button>
+    <button id="mTOC" title="Table of Contents"><i class="fas fa-book"></i></button>
+    <button id="mMenu" title="Menu"><i class="fas fa-ellipsis-h"></i></button>
+    <button id="mNext" title="Next Page"><i class="fas fa-chevron-right"></i></button>
   </div>
+  
+  <!-- Mobile Menu Modal (for additional controls) -->
+  <div id="mobileMenu" class="hidden">
+    <div class="mobileMenuContent">
+      <button id="mToggleTheme" title="Toggle Theme"><i class="fas fa-adjust"></i></button>
+      <button id="mDownloadEPUB" title="Download EPUB"><i class="fas fa-download"></i></button>
+      <button id="mToggleFullscreen" title="Toggle Fullscreen"><i class="fas fa-expand"></i></button>
+      <button id="mDecreaseFont" title="Decrease Font Size"><i class="fas fa-minus"></i></button>
+      <button id="mIncreaseFont" title="Increase Font Size"><i class="fas fa-plus"></i></button>
+      <button id="mAddBookmark" title="Add Bookmark"><i class="fas fa-bookmark"></i></button>
+      <button id="mBookmarkManager" title="Bookmark Manager"><i class="fas fa-book-reader"></i></button>
+      <button id="mTogglePageMode" title="Toggle Page Mode"><i class="fas fa-book-open"></i></button>
+      <button id="mCloseMenu" title="Close Menu"><i class="fas fa-times"></i></button>
+    </div>
+  </div>
+  
+  <!-- On-screen Mobile Page Turning Buttons -->
+  <div id="mobileNavLeft" class="mobile-nav"><i class="fas fa-chevron-left"></i></div>
+  <div id="mobileNavRight" class="mobile-nav"><i class="fas fa-chevron-right"></i></div>
   
   <!-- TOC Sidebar -->
   <div id="toc"></div>
@@ -374,17 +449,9 @@
   <script src="https://unpkg.com/epubjs/dist/epub.min.js"></script>
   <script>
     document.addEventListener("DOMContentLoaded", function() {
-      // Initialize theme from localStorage
-      const savedTheme = localStorage.getItem("theme");
-      if (savedTheme === "dark") {
-        document.body.classList.add("dark");
-      } else {
-        document.body.classList.remove("dark");
-      }
-      
       // -------------------------- 
       // Library Books Data 
-      // (No external cover URL; cover will be extracted from the EPUB.)
+      // (Cover image will be extracted from within the EPUB)
       // -------------------------- 
       const libraryBooks = [
         { name: "LeverAction.epub", title: "Lever Action" }
@@ -431,9 +498,9 @@
         document.getElementById("library").classList.add("hidden");
         document.getElementById("reader").classList.remove("hidden");
         loadBook(book.name, book.name);
-        // On mobile, show the navigation overlay.
+        // On mobile, ensure the bottom navigation bar is visible.
         if (window.innerWidth <= 768) {
-          document.getElementById("mobileNav").classList.remove("hidden");
+          document.getElementById("mobileNavBar").style.display = "flex";
         }
       }
       
@@ -547,6 +614,13 @@
         currentFileName = fileName;
         currentBook = ePub(source);
         
+        // Set reader background immediately based on theme
+        if (document.documentElement.classList.contains("dark")) {
+          document.getElementById("reader").style.backgroundColor = "#1e1e1e";
+        } else {
+          document.getElementById("reader").style.backgroundColor = "#fff";
+        }
+        
         let renderOptions = { width: "100%", height: "100%" };
         if (window.innerWidth <= 768 || onePageMode) {
           renderOptions.spread = "none";
@@ -569,7 +643,7 @@
           "h1, h2, h3, h4, h5, h6": { "color": "#f5f5f5" }
         });
         
-        if (document.body.classList.contains("dark")) {
+        if (document.documentElement.classList.contains("dark")) {
           currentRendition.themes.select("dark");
         } else {
           currentRendition.themes.select("default");
@@ -649,15 +723,16 @@
         if (currentRendition) currentRendition.next();
       });
       
+      // Use document.documentElement for theme toggling so light mode is preserved.
       document.getElementById("toggleTheme").addEventListener("click", function() {
-        document.body.classList.toggle("dark");
-        if (document.body.classList.contains("dark")) {
+        document.documentElement.classList.toggle("dark");
+        if (document.documentElement.classList.contains("dark")) {
           localStorage.setItem("theme", "dark");
         } else {
           localStorage.setItem("theme", "light");
         }
         if (currentRendition) {
-          currentRendition.themes.select(document.body.classList.contains("dark") ? "dark" : "default");
+          currentRendition.themes.select(document.documentElement.classList.contains("dark") ? "dark" : "default");
         }
       });
       
@@ -723,16 +798,77 @@
       });
       
       // -------------------------- 
-      // Mobile Navigation Buttons 
+      // Mobile Bottom Navigation Bar Events 
       // -------------------------- 
-      document.getElementById("mobilePrev").addEventListener("click", function() {
+      document.getElementById("mPrev").addEventListener("click", function() {
         if (currentRendition) currentRendition.prev();
       });
-      document.getElementById("mobileNext").addEventListener("click", function() {
+      document.getElementById("mNext").addEventListener("click", function() {
         if (currentRendition) currentRendition.next();
       });
+      document.getElementById("mTOC").addEventListener("click", function() {
+        let toc = document.getElementById("toc");
+        if (toc.classList.contains("visible")) { hideTOC(); }
+        else { showTOC(); }
+      });
+      document.getElementById("mMenu").addEventListener("click", function() {
+        // Show the mobile menu modal overlay
+        document.getElementById("mobileMenu").classList.remove("hidden");
+        document.getElementById("mobileMenu").style.display = "block";
+      });
       
-      document.getElementById("togglePageMode").addEventListener("click", function() {
+      // Mobile Menu Modal Button Events
+      document.getElementById("mToggleTheme").addEventListener("click", function() {
+        document.documentElement.classList.toggle("dark");
+        if (document.documentElement.classList.contains("dark")) {
+          localStorage.setItem("theme", "dark");
+        } else {
+          localStorage.setItem("theme", "light");
+        }
+        if (currentRendition) {
+          currentRendition.themes.select(document.documentElement.classList.contains("dark") ? "dark" : "default");
+        }
+      });
+      document.getElementById("mDownloadEPUB").addEventListener("click", function() {
+        if (typeof currentFileName === "string" && currentFileName === "LeverAction.epub") {
+          var link = document.createElement("a");
+          link.href = currentFileName;
+          link.download = currentFileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } else { alert("Download is only available for the default EPUB."); }
+      });
+      document.getElementById("mToggleFullscreen").addEventListener("click", function() {
+        let elem = document.documentElement;
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+          if (elem.requestFullscreen) { elem.requestFullscreen(); }
+          else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); }
+          else { alert("Fullscreen mode is not supported on your device."); }
+        } else {
+          if (document.exitFullscreen) { document.exitFullscreen(); }
+          else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); }
+        }
+      });
+      document.getElementById("mIncreaseFont").addEventListener("click", function() {
+        currentFontSize += 2;
+        if (currentRendition && currentRendition.themes) {
+          currentRendition.themes.fontSize(currentFontSize + "px");
+        }
+      });
+      document.getElementById("mDecreaseFont").addEventListener("click", function() {
+        currentFontSize = Math.max(10, currentFontSize - 2);
+        if (currentRendition && currentRendition.themes) {
+          currentRendition.themes.fontSize(currentFontSize + "px");
+        }
+      });
+      document.getElementById("mAddBookmark").addEventListener("click", function() {
+        addBookmark();
+      });
+      document.getElementById("mBookmarkManager").addEventListener("click", function() {
+        showBookmarkManager();
+      });
+      document.getElementById("mTogglePageMode").addEventListener("click", function() {
         if (window.innerWidth < 769) {
           alert("Page mode toggle is available on desktop only.");
           return;
@@ -750,19 +886,24 @@
         }
         alert("Page mode is now set to " + (onePageMode ? "One Page (Centered)" : "Spread Mode") + ".");
       });
+      document.getElementById("mCloseMenu").addEventListener("click", function() {
+        // Hide the mobile menu overlay
+        document.getElementById("mobileMenu").classList.add("hidden");
+        document.getElementById("mobileMenu").style.display = "none";
+      });
+      
+      // On-screen mobile page turning buttons (left/right)
+      document.getElementById("mobileNavLeft").addEventListener("click", function() {
+        if (currentRendition) currentRendition.prev();
+      });
+      document.getElementById("mobileNavRight").addEventListener("click", function() {
+        if (currentRendition) currentRendition.next();
+      });
       
       window.addEventListener("resize", function() {
         if (document.getElementById("reader").classList.contains("one-page")) {
           scaleOnePageContent();
         }
-      });
-      
-      document.getElementById("bookmarkManagerBtn").addEventListener("click", function() {
-        showBookmarkManager();
-      });
-      
-      document.getElementById("addBookmark").addEventListener("click", function() {
-        addBookmark();
       });
     });
     
