@@ -1,927 +1,634 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <!-- PWA Manifest & Mobile Home Screen Meta -->
-  <link rel="manifest" href="/manifest.json">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lever Action EPUB Reader</title>
-  <!-- Inline script to immediately set dark mode if stored -->
-  <script>
-    if (localStorage.getItem('theme') === 'dark') {
-      document.documentElement.classList.add('dark');
-    }
-  </script>
-  <!-- Google Font: Roboto -->
-  <link href="https://fonts.googleapis.com/css?family=Roboto:400,500&display=swap" rel="stylesheet">
-  <!-- Font Awesome for Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+  <meta charset="UTF-8" />
+  <title>EPUB Reader (Faster Fade-In)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Google Fonts & Font Awesome (optional) -->
+  <link
+    href="https://fonts.googleapis.com/css?family=Roboto:400,500&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+  />
+
+  <!-- epub.js & JSZip -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.6.0/jszip.min.js"></script>
+  <script src="https://unpkg.com/epubjs/dist/epub.min.js"></script>
+
   <style>
-    /* -------------------------- */
-    /* Global Variables & Styles  */
-    /* -------------------------- */
     :root {
-      --bg-color-light: #f5f7fa;
-      --text-color-light: #333;
-      --red-primary: #ff0000;
-      --red-secondary: #ff4d4d;
-      --bg-color-dark: #1e1e1e;
-      --text-color-dark: #f5f5f5;
-      --sidebar-width: 200px;
-      --sidebar-collapsed-width: 40px;
+      --bg-light: #f5f7fa;
+      --text-light: #333;
+      --bg-dark: #1e1e1e;
+      --text-dark: #f5f5f5;
+      --accent-color: #4e54c8;
+      --accent-light: #8f94fb;
     }
     html, body {
-      margin: 0;
+      margin: 0; 
       padding: 0;
       font-family: 'Roboto', sans-serif;
-      background-color: var(--bg-color-light);
-      color: var(--text-color-light);
-      overflow: hidden;
-      transition: background-color 0.3s ease, color 0.3s ease;
+      background: var(--bg-light);
+      color: var(--text-light);
+      transition: background-color 0.3s, color 0.3s;
+      height: 100%;
     }
-    html.dark, body.dark {
-      background-color: var(--bg-color-dark);
-      color: var(--text-color-dark);
+    body.dark {
+      background: var(--bg-dark);
+      color: var(--text-dark);
     }
-    
-    /* -------------------------- */
-    /* Library View Styles        */
-    /* -------------------------- */
-    #library {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      overflow-y: auto;
-      padding: 20px;
-      background: var(--bg-color-light);
-    }
-    html.dark #library {
-      background: var(--bg-color-dark);
-    }
-    #library h1 {
+    .hidden { display: none !important; }
+
+    /* Library Screen */
+    #libraryScreen {
+      padding: 2rem;
       text-align: center;
-      margin-bottom: 20px;
     }
-    #libraryList {
+    .book-list {
       display: flex;
       flex-wrap: wrap;
-      gap: 20px;
       justify-content: center;
+      gap: 1rem;
     }
     .book-item {
-      cursor: pointer;
       width: 150px;
       text-align: center;
-      border: 1px solid #ccc;
-      padding: 10px;
-      border-radius: 4px;
-      background: #fff;
-      transition: transform 0.2s;
+      cursor: pointer;
     }
-    .book-item:hover {
-      transform: scale(1.05);
-    }
-    .book-item img {
-      width: 100%;
-      height: auto;
-      border-radius: 4px;
-      margin-bottom: 10px;
+    .book-cover {
+      width: 150px;
+      height: 200px;
       object-fit: cover;
-      max-height: 200px;
+      border: 2px solid var(--accent-color);
+      border-radius: 4px;
     }
-    
-    /* -------------------------- */
-    /* Desktop Sidebar (UI Tab)   */
-    /* -------------------------- */
-    #sidebar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      bottom: 0;
-      width: var(--sidebar-width);
-      background: linear-gradient(180deg, var(--red-primary), var(--red-secondary));
-      color: #fff;
-      padding: 10px;
+    .book-title {
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      font-weight: bold;
+    }
+
+    /* Reader Screen */
+    #readerScreen {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+    }
+
+    /* Toolbar */
+    .toolbar {
       display: flex;
-      flex-direction: column;
       align-items: center;
-      transition: width 0.3s ease;
-      z-index: 1100;
+      gap: 0.3rem;
+      background: linear-gradient(90deg, var(--accent-color), var(--accent-light));
+      color: #fff;
+      padding: 0.5rem 1rem;
+      z-index: 1000;
     }
-    #sidebar.retracted {
-      width: var(--sidebar-collapsed-width);
-    }
-    #sidebar button,
-    #sidebar label {
+    .toolbar button {
       background: rgba(255,255,255,0.2);
       border: none;
-      padding: 8px;
+      padding: 0.5rem;
       border-radius: 4px;
       cursor: pointer;
-      font-weight: 500;
-      margin: 5px 0;
-      width: 100%;
-      text-align: center;
-      transition: background 0.3s ease;
     }
-    #sidebar button:hover,
-    #sidebar label:hover {
+    .toolbar button:hover {
       background: rgba(255,255,255,0.3);
     }
-    #sidebar input[type="file"] {
+
+    /* The floating "Show UI" button */
+    #showUIBtn {
+      position: fixed;
+      top: 5px; 
+      left: 5px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      padding: 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 3000; /* Above everything */
       display: none;
     }
-    /* Sidebar toggle button */
-    #sidebar #sidebarToggle {
-      background: transparent;
-      width: auto;
-      align-self: flex-end;
-      margin-bottom: 10px;
+
+    /* TOC */
+    #toc {
+      position: absolute;
+      top: 3rem;
+      left: 0;
+      width: 250px;
+      height: calc(100% - 3rem);
+      background: #fff;
+      color: #333;
+      border-right: 1px solid #ccc;
+      overflow-y: auto;
+      transition: transform 0.3s ease;
+      z-index: 900;
     }
-    /* Hide controls when sidebar is retracted */
-    #sidebar.retracted #sidebarContent {
-      display: none;
+    body.dark #toc {
+      background: #222;
+      color: #f5f5f5;
     }
-    
-    /* -------------------------- */
-    /* Reader Styles              */
-    /* -------------------------- */
+    #toc ul { list-style: none; margin: 0; padding: 1rem; }
+    #toc li { margin-bottom: 0.5rem; }
+    #toc a { text-decoration: none; color: inherit; }
+
+    /* The Reader container for epub.js */
     #reader {
       position: absolute;
-      top: 0;
-      left: var(--sidebar-width);
-      right: 0;
-      bottom: 0;
-      overflow: auto;
-      background: #fff;
-      transition: left 0.3s ease;
-      font-size: 16px;
-    }
-    /* If dark mode, force dark background immediately */
-    html.dark #reader {
-      background: var(--bg-color-dark);
-    }
-    #reader.hidden {
-      display: none;
-    }
-    /* One-page mode centering */
-    #reader.one-page {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-    }
-    #reader.one-page iframe,
-    #reader.one-page .epub-view {
-      width: 600px;
-      height: 800px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.3);
-      transform-origin: center center;
-    }
-    /* Adjust reader offset if sidebar is retracted */
-    #sidebar.retracted ~ #reader {
-      left: var(--sidebar-collapsed-width);
-    }
-    
-    /* -------------------------- */
-    /* TOC Sidebar                */
-    /* -------------------------- */
-    #toc {
-      position: fixed;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      width: 250px;
-      background: #fff;
-      color: #333;
-      overflow-y: auto;
-      padding: 15px;
-      z-index: 1050;
-      box-shadow: -2px 0 8px rgba(0,0,0,0.1);
-      transition: transform 0.3s ease;
-      transform: translateX(100%);
-    }
-    html.dark #toc {
-      background: var(--bg-color-dark);
-      color: var(--text-color-dark);
-    }
-    #toc.visible {
-      transform: translateX(0);
-    }
-    #toc ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-    #toc li {
-      margin-bottom: 12px;
-    }
-    #toc a {
-      text-decoration: none;
-      color: inherit;
-      font-weight: 500;
-      transition: color 0.2s ease;
-    }
-    #toc a:hover {
-      color: var(--red-secondary);
-    }
-    
-    /* -------------------------- */
-    /* Bookmark Manager           */
-    /* -------------------------- */
-    #bookmarkManager {
-      position: fixed;
-      top: 0;
+      top: 3rem;
       left: 0;
       width: 100%;
-      height: 100%;
+      height: calc(100% - 3rem);
+      overflow: hidden;
+
+      /* FASTER fade: 0.2s */
+      opacity: 0;
+      transition: opacity 0.2s ease-in-out;
+    }
+
+    /* Modal for bookmarks */
+    .modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
       background: rgba(0,0,0,0.5);
+      z-index: 2000;
       display: flex;
       justify-content: center;
       align-items: center;
-      z-index: 1300;
     }
-    #bookmarkManager .content {
+    .modal-content {
       background: #fff;
       color: #333;
-      padding: 20px;
-      border-radius: 4px;
+      padding: 1rem;
+      border-radius: 6px;
       max-width: 90%;
       max-height: 90%;
       overflow-y: auto;
-      box-shadow: 0 0 10px rgba(0,0,0,0.3);
     }
-    html.dark #bookmarkManager .content {
+    body.dark .modal-content {
       background: #2e2e2e;
-      color: #fff;
-      box-shadow: 0 0 15px rgba(255,255,255,0.2);
+      color: #f5f5f5;
     }
-    #bookmarkManager h2 {
-      margin-top: 0;
-    }
-    .bookmark-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #ccc;
-      padding: 5px 0;
-    }
-    .bookmark-item:last-child {
-      border-bottom: none;
-    }
-    .bookmark-item button {
-      margin-left: 10px;
-      background: var(--red-primary);
-      color: #fff;
-      border: none;
-      padding: 4px 8px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    
-    .hidden {
-      display: none !important;
-    }
-    
-    /* -------------------------- */
-    /* Mobile UI Styles           */
-    /* -------------------------- */
+
+    /* Mobile / small screens */
     @media (max-width: 768px) {
-      /* Hide the desktop sidebar */
-      #sidebar {
-        display: none;
-      }
-      /* Force reader to occupy full width */
-      #reader {
-        left: 0 !important;
-        /* Add extra bottom padding so content isn’t covered by mobile nav */
-        padding-bottom: 70px;
-      }
-      /* Show the mobile bottom navigation bar */
-      #mobileNavBar {
-        display: flex;
-      }
-    }
-    /* Mobile bottom navigation bar */
-    #mobileNavBar {
-      display: none; /* shown via media query */
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: rgba(0,0,0,0.7);
-      justify-content: space-around;
-      padding: 10px 0;
-      z-index: 1200;
-    }
-    #mobileNavBar button {
-      background: transparent;
-      border: none;
-      color: #fff;
-      font-size: 24px;
-      cursor: pointer;
-    }
-    /* Mobile Menu Modal (for additional controls) */
-    #mobileMenu {
-      display: none; /* hidden by default */
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: #fff;
-      padding: 20px;
-      z-index: 1300;
-      box-shadow: 0 -2px 8px rgba(0,0,0,0.3);
-    }
-    #mobileMenu .mobileMenuContent {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
-    }
-    #mobileMenu button {
-      background: #eee;
-      border: none;
-      padding: 10px;
-      border-radius: 4px;
-      font-size: 18px;
-      cursor: pointer;
-    }
-    /* On-screen mobile page turning buttons (left/right sides) */
-    .mobile-nav {
-      position: fixed;
-      top: 50%;
-      transform: translateY(-50%);
-      background: rgba(0,0,0,0.5);
-      padding: 10px;
-      border-radius: 50%;
-      color: #fff;
-      font-size: 24px;
-      z-index: 1200;
-      display: none;
-    }
-    #mobileNavLeft { left: 10px; }
-    #mobileNavRight { right: 10px; }
-    @media (max-width: 768px) {
-      .mobile-nav {
-        display: block;
+      #toc {
+        width: 100%;
+        transform: translateY(-100%);
       }
     }
   </style>
 </head>
 <body>
-  <!-- Library View: Shown on startup -->
-  <div id="library">
-    <h1>Select a Book</h1>
-    <div id="libraryList"></div>
+  <!-- LIBRARY SCREEN -->
+  <div id="libraryScreen">
+    <h1>My EPUB Library</h1>
+    <div id="bookList" class="book-list"></div>
   </div>
-  
-  <!-- Desktop Sidebar (UI Tab) -->
-  <div id="sidebar" class="retracted">
-    <button id="sidebarToggle"><i class="fas fa-chevron-right"></i></button>
-    <div id="sidebarContent">
-      <button id="prev" title="Previous Page"><i class="fas fa-chevron-left"></i></button>
-      <button id="next" title="Next Page"><i class="fas fa-chevron-right"></i></button>
-      <button id="toggleTheme" title="Toggle Theme"><i class="fas fa-adjust"></i></button>
+
+  <!-- READER SCREEN -->
+  <div id="readerScreen" class="hidden">
+    <!-- Toolbar -->
+    <div id="toolbar" class="toolbar">
+      <button id="prevPage" title="Prev Page"><i class="fas fa-chevron-left"></i></button>
+      <button id="nextPage" title="Next Page"><i class="fas fa-chevron-right"></i></button>
+      <span id="pageInfo" style="margin: 0 1rem;">Page ? of ?</span>
+
       <button id="toggleTOC" title="Toggle TOC"><i class="fas fa-bars"></i></button>
-      <button id="downloadEPUB" title="Download EPUB"><i class="fas fa-download"></i></button>
-      <button id="toggleFullscreen" title="Toggle Fullscreen"><i class="fas fa-expand"></i></button>
-      <button id="decreaseFont" title="Decrease Text Size"><i class="fas fa-minus"></i></button>
-      <button id="increaseFont" title="Increase Text Size"><i class="fas fa-plus"></i></button>
+      <button id="toggleTheme" title="Toggle Theme"><i class="fas fa-adjust"></i></button>
+
+      <button id="fontDecrease" title="Decrease Font"><i class="fas fa-minus"></i></button>
+      <button id="fontIncrease" title="Increase Font"><i class="fas fa-plus"></i></button>
+
       <button id="addBookmark" title="Add Bookmark"><i class="fas fa-bookmark"></i></button>
-      <button id="bookmarkManagerBtn" title="Bookmark Manager"><i class="fas fa-book-reader"></i></button>
-      <button id="togglePageMode" title="Toggle Page Mode"><i class="fas fa-book-open"></i></button>
-      <label for="fileInput" title="Upload EPUB"><i class="fas fa-upload"></i></label>
-      <input type="file" id="fileInput" accept=".epub">
-      <span id="pageInfo"></span>
+      <button id="bookmarkManagerBtn" title="Manage Bookmarks"><i class="fas fa-book-reader"></i></button>
+
+      <button id="downloadEPUB" title="Download EPUB"><i class="fas fa-download"></i></button>
+      <button id="toggleFullscreen" title="Fullscreen"><i class="fas fa-expand"></i></button>
+
+      <!-- Hide UI -->
+      <button id="hideUIBtn" title="Hide UI"><i class="fas fa-eye-slash"></i></button>
+
+      <!-- Back to library -->
+      <button id="backToLibrary" title="Back"><i class="fas fa-arrow-left"></i></button>
     </div>
+
+    <!-- Show UI button when hidden -->
+    <div id="showUIBtn"><i class="fas fa-eye"></i></div>
+
+    <!-- TOC -->
+    <div id="toc" class="hidden"></div>
+
+    <!-- Reader container -->
+    <div id="reader"></div>
   </div>
-  
-  <!-- Mobile Bottom Navigation Bar -->
-  <div id="mobileNavBar">
-    <button id="mPrev" title="Previous Page"><i class="fas fa-chevron-left"></i></button>
-    <button id="mTOC" title="Table of Contents"><i class="fas fa-book"></i></button>
-    <button id="mMenu" title="Menu"><i class="fas fa-ellipsis-h"></i></button>
-    <button id="mNext" title="Next Page"><i class="fas fa-chevron-right"></i></button>
-  </div>
-  
-  <!-- Mobile Menu Modal (for additional controls) -->
-  <div id="mobileMenu" class="hidden">
-    <div class="mobileMenuContent">
-      <button id="mToggleTheme" title="Toggle Theme"><i class="fas fa-adjust"></i></button>
-      <button id="mDownloadEPUB" title="Download EPUB"><i class="fas fa-download"></i></button>
-      <button id="mToggleFullscreen" title="Toggle Fullscreen"><i class="fas fa-expand"></i></button>
-      <button id="mDecreaseFont" title="Decrease Font Size"><i class="fas fa-minus"></i></button>
-      <button id="mIncreaseFont" title="Increase Font Size"><i class="fas fa-plus"></i></button>
-      <button id="mAddBookmark" title="Add Bookmark"><i class="fas fa-bookmark"></i></button>
-      <button id="mBookmarkManager" title="Bookmark Manager"><i class="fas fa-book-reader"></i></button>
-      <button id="mTogglePageMode" title="Toggle Page Mode"><i class="fas fa-book-open"></i></button>
-      <button id="mCloseMenu" title="Close Menu"><i class="fas fa-times"></i></button>
-    </div>
-  </div>
-  
-  <!-- On-screen Mobile Page Turning Buttons -->
-  <div id="mobileNavLeft" class="mobile-nav"><i class="fas fa-chevron-left"></i></div>
-  <div id="mobileNavRight" class="mobile-nav"><i class="fas fa-chevron-right"></i></div>
-  
-  <!-- TOC Sidebar -->
-  <div id="toc"></div>
-  
-  <!-- Reader Container (hidden until a book is selected) -->
-  <div id="reader" class="hidden"></div>
-  
-  <!-- Bookmark Manager Modal -->
-  <div id="bookmarkManager" class="hidden">
-    <div class="content">
+
+  <!-- Bookmark Manager -->
+  <div id="bookmarkManager" class="modal hidden">
+    <div class="modal-content">
       <h2>Bookmarks</h2>
       <ul id="bookmarkList"></ul>
       <button id="closeBookmarkManager">Close</button>
     </div>
   </div>
-  
-  <!-- -------------------------- -->
-  <!-- JavaScript Section         -->
-  <!-- -------------------------- -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
-  <script src="https://unpkg.com/epubjs/dist/epub.min.js"></script>
+
   <script>
-    document.addEventListener("DOMContentLoaded", function() {
-      // -------------------------- 
-      // Library Books Data 
-      // (Cover image will be extracted from within the EPUB)
-      // -------------------------- 
-      const libraryBooks = [
-        { name: "LeverAction.epub", title: "Lever Action" }
-        // Add additional books as needed.
-      ];
-      
-      const libraryListEl = document.getElementById("libraryList");
-      libraryBooks.forEach(book => {
-        const bookItem = document.createElement("div");
-        bookItem.className = "book-item";
-        
-        // Create image element for cover; use a transparent placeholder initially.
-        const img = document.createElement("img");
-        img.alt = book.title;
-        img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
-        bookItem.appendChild(img);
-        
-        const titleEl = document.createElement("div");
-        titleEl.textContent = book.title;
-        bookItem.appendChild(titleEl);
-        
-        // Load the EPUB and retrieve its cover from within the file.
-        const epubBook = ePub(book.name);
-        epubBook.loaded.metadata.then(() => {
-          epubBook.coverUrl().then(function(url) {
-            img.src = url;
-          }).catch(function(err) {
-            console.error("No cover found for", book.name, err);
-          });
-        }).catch(err => {
-          console.error("Error loading EPUB", book.name, err);
-        });
-        
-        bookItem.addEventListener("click", function() {
-          startBook(book);
-        });
-        libraryListEl.appendChild(bookItem);
-      });
-      
-      // -------------------------- 
-      // Start a Book 
-      // -------------------------- 
-      function startBook(book) {
-        document.getElementById("library").classList.add("hidden");
-        document.getElementById("reader").classList.remove("hidden");
-        loadBook(book.name, book.name);
-        // On mobile, ensure the bottom navigation bar is visible.
-        if (window.innerWidth <= 768) {
-          document.getElementById("mobileNavBar").style.display = "flex";
-        }
+  /**********************************************************************
+   * Inline script.js
+   **********************************************************************/
+  let currentBook = null;
+  let rendition = null;
+  let currentFile = "";
+  let currentTheme = "light"; // or "dark"
+  let currentFontSize = 16;
+
+  const libraryData = [
+    { title: "Lever Action (Default)", filePath: "LeverAction.epub" },
+    { title: "Sample Book", filePath: "SampleBook.epub" }
+  ];
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    // Restore theme
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme === "dark") {
+      document.body.classList.add("dark");
+      currentTheme = "dark";
+    }
+
+    // Restore font
+    const savedFont = localStorage.getItem("fontSize");
+    if (savedFont) {
+      const parsed = parseInt(savedFont, 10);
+      if (!isNaN(parsed)) currentFontSize = parsed;
+    }
+
+    await initLibrary();
+  });
+
+  async function initLibrary() {
+    const libScreen = document.getElementById("libraryScreen");
+    const readerScreen = document.getElementById("readerScreen");
+    const bookList = document.getElementById("bookList");
+
+    libScreen.classList.remove("hidden");
+    readerScreen.classList.add("hidden");
+    bookList.innerHTML = "";
+
+    for (let entry of libraryData) {
+      const item = document.createElement("div");
+      item.className = "book-item";
+
+      const img = document.createElement("img");
+      img.className = "book-cover";
+      img.src = "https://placehold.co/150x200?text=No+Cover";
+
+      const title = document.createElement("div");
+      title.className = "book-title";
+      title.textContent = entry.title;
+
+      item.appendChild(img);
+      item.appendChild(title);
+      bookList.appendChild(item);
+
+      // Attempt real cover
+      try {
+        const b = ePub(entry.filePath);
+        await b.ready;
+        const c = await b.loaded.cover;
+        if (c) img.src = c;
+      } catch(e) {
+        console.warn("Cover load error:", e);
       }
-      
-      // -------------------------- 
-      // Desktop Sidebar Toggle 
-      // -------------------------- 
-      const sidebar = document.getElementById("sidebar");
-      const sidebarToggle = document.getElementById("sidebarToggle");
-      sidebarToggle.addEventListener("click", function() {
-        if (sidebar.classList.contains("retracted")) {
-          sidebar.classList.remove("retracted");
-          sidebarToggle.innerHTML = '<i class="fas fa-chevron-left"></i>';
-        } else {
-          sidebar.classList.add("retracted");
-          sidebarToggle.innerHTML = '<i class="fas fa-chevron-right"></i>';
-        }
-        // Force a reflow of the EPUB rendition.
-        setTimeout(() => {
-          if (currentRendition) {
-            currentRendition.resize();
-          }
-        }, 300);
-      });
-      
-      // -------------------------- 
-      // EPUB Reader Setup 
-      // -------------------------- 
-      let currentBook = null;
-      let currentRendition = null;
-      let currentFileName = "";
-      let currentFontSize = 16; // in pixels
-      let onePageMode = false;
-      
-      // Bookmark functions
-      function addBookmark() {
-        if (!currentRendition) return;
-        let loc = currentRendition.currentLocation();
-        if (!loc || !loc.start || !loc.start.cfi) return;
-        let cfi = loc.start.cfi;
-        let page = currentBook.locations ? currentBook.locations.locationFromCfi(cfi) : "Unknown";
-        let bookmark = { cfi: cfi, label: "Page " + page };
-        let key = "bookmarks-" + currentFileName;
-        let bookmarks = JSON.parse(localStorage.getItem(key) || "[]");
-        bookmarks.push(bookmark);
-        localStorage.setItem(key, JSON.stringify(bookmarks));
-        alert("Bookmark added at " + bookmark.label);
-      }
-      
-      function loadBookmarks() {
-        let key = "bookmarks-" + currentFileName;
-        return JSON.parse(localStorage.getItem(key) || "[]");
-      }
-      
-      function updateBookmarkList() {
-        let bookmarks = loadBookmarks();
-        let listEl = document.getElementById("bookmarkList");
-        listEl.innerHTML = "";
-        if (bookmarks.length === 0) {
-          let li = document.createElement("li");
-          li.textContent = "No bookmarks added.";
-          listEl.appendChild(li);
-          return;
-        }
-        bookmarks.forEach((bm, index) => {
-          let li = document.createElement("li");
-          li.classList.add("bookmark-item");
-          let span = document.createElement("span");
-          span.textContent = bm.label;
-          span.style.cursor = "pointer";
-          span.addEventListener("click", () => {
-            currentRendition.display(bm.cfi);
-            hideBookmarkManager();
-          });
-          let delBtn = document.createElement("button");
-          delBtn.textContent = "Delete";
-          delBtn.addEventListener("click", () => { removeBookmark(index); });
-          li.appendChild(span);
-          li.appendChild(delBtn);
-          listEl.appendChild(li);
-        });
-      }
-      
-      function removeBookmark(index) {
-        let key = "bookmarks-" + currentFileName;
-        let bookmarks = loadBookmarks();
-        bookmarks.splice(index, 1);
-        localStorage.setItem(key, JSON.stringify(bookmarks));
-        updateBookmarkList();
-      }
-      
-      function showBookmarkManager() {
-        updateBookmarkList();
-        document.getElementById("bookmarkManager").classList.remove("hidden");
-      }
-      
-      function hideBookmarkManager() {
-        document.getElementById("bookmarkManager").classList.add("hidden");
-      }
-      
-      document.getElementById("closeBookmarkManager").addEventListener("click", function() {
-        hideBookmarkManager();
-      });
-      
-      // Main book loading function
-      function loadBook(source, fileName) {
-        if (currentRendition) {
-          currentRendition.destroy();
-          currentRendition = null;
-          document.getElementById("reader").innerHTML = "";
-        }
-        currentFileName = fileName;
-        currentBook = ePub(source);
-        
-        // Set reader background immediately based on theme
-        if (document.documentElement.classList.contains("dark")) {
-          document.getElementById("reader").style.backgroundColor = "#1e1e1e";
-        } else {
-          document.getElementById("reader").style.backgroundColor = "#fff";
-        }
-        
-        let renderOptions = { width: "100%", height: "100%" };
-        if (window.innerWidth <= 768 || onePageMode) {
-          renderOptions.spread = "none";
-        }
-        
-        currentRendition = currentBook.renderTo("reader", renderOptions);
-        
-        if (onePageMode || window.innerWidth <= 768) {
-          document.getElementById("reader").classList.add("one-page");
-          setTimeout(scaleOnePageContent, 300);
-        } else {
-          document.getElementById("reader").classList.remove("one-page");
-        }
-        
-        currentRendition.themes.fontSize(currentFontSize + "px");
-        
-        currentRendition.themes.register("dark", {
-          "body": { "background": "#1e1e1e", "color": "#f5f5f5" },
-          "p": { "color": "#f5f5f5" },
-          "h1, h2, h3, h4, h5, h6": { "color": "#f5f5f5" }
-        });
-        
-        if (document.documentElement.classList.contains("dark")) {
-          currentRendition.themes.select("dark");
-        } else {
-          currentRendition.themes.select("default");
-        }
-        
-        const savedLocation = localStorage.getItem("epub-location-" + fileName);
-        currentRendition.display(savedLocation || undefined);
-        
-        currentRendition.on("relocated", function(location) {
-          localStorage.setItem("epub-location-" + fileName, location.start.cfi);
-          if (currentBook.locations && currentBook.locations.total) {
-            let currentPage = currentBook.locations.locationFromCfi(location.start.cfi);
-            document.getElementById("pageInfo").textContent = "Page " + currentPage + " of " + currentBook.locations.total;
-          }
-        });
-        
-        currentBook.loaded.navigation.then(function(navigation) {
-          let tocElement = document.getElementById("toc");
-          tocElement.innerHTML = "";
-          let ul = document.createElement("ul");
-          navigation.toc.forEach(function(chapter) {
-            let li = document.createElement("li");
-            let a = document.createElement("a");
-            a.textContent = chapter.label;
-            a.href = chapter.href;
-            a.addEventListener("click", function(e) {
-              e.preventDefault();
-              currentRendition.display(chapter.href);
-              if (window.innerWidth <= 768) { hideTOC(); }
-            });
-            li.appendChild(a);
-            ul.appendChild(li);
-          });
-          tocElement.appendChild(ul);
-        });
-        
-        currentBook.ready.then(function() {
-          return currentBook.locations.generate(1600);
-        }).then(function() {
-          const currentLocation = currentRendition.currentLocation();
-          if (currentLocation && currentBook.locations && currentBook.locations.total) {
-            let currentPage = currentBook.locations.locationFromCfi(currentLocation.start.cfi);
-            document.getElementById("pageInfo").textContent = "Page " + currentPage + " of " + currentBook.locations.total;
-          }
-        });
-        
-        currentRendition.hooks.content.register(function(contents, rendition) {
-          const doc = contents.document;
-          doc.body.setAttribute("tabindex", "0");
-          doc.body.focus();
-          doc.addEventListener("keydown", function(e) {
-            if (e.key === "ArrowLeft") { rendition.prev(); }
-            else if (e.key === "ArrowRight") { rendition.next(); }
-          });
-        });
-      }
-      
-      function scaleOnePageContent() {
-        const container = document.querySelector("#reader.one-page iframe, #reader.one-page .epub-view");
-        if (!container) return;
-        const baseWidth = 600;
-        const baseHeight = 800;
-        const viewportWidth = window.innerWidth * 0.9;
-        const viewportHeight = window.innerHeight * 0.9;
-        const scale = Math.min(viewportWidth / baseWidth, viewportHeight / baseHeight, 1);
-        container.style.transform = "scale(" + scale + ")";
-        container.style.transformOrigin = "center center";
-      }
-      
-      // -------------------------- 
-      // Global Event Listeners 
-      // -------------------------- 
-      document.getElementById("prev").addEventListener("click", function() {
-        if (currentRendition) currentRendition.prev();
-      });
-      document.getElementById("next").addEventListener("click", function() {
-        if (currentRendition) currentRendition.next();
-      });
-      
-      // Use document.documentElement for theme toggling so light mode is preserved.
-      document.getElementById("toggleTheme").addEventListener("click", function() {
-        document.documentElement.classList.toggle("dark");
-        if (document.documentElement.classList.contains("dark")) {
-          localStorage.setItem("theme", "dark");
-        } else {
-          localStorage.setItem("theme", "light");
-        }
-        if (currentRendition) {
-          currentRendition.themes.select(document.documentElement.classList.contains("dark") ? "dark" : "default");
-        }
-      });
-      
-      function showTOC() {
-        let toc = document.getElementById("toc");
-        toc.classList.add("visible");
-      }
-      function hideTOC() {
-        let toc = document.getElementById("toc");
-        toc.classList.remove("visible");
-      }
-      document.getElementById("toggleTOC").addEventListener("click", function() {
-        let toc = document.getElementById("toc");
-        if (toc.classList.contains("visible")) { hideTOC(); }
-        else { showTOC(); }
-      });
-      
-      document.getElementById("fileInput").addEventListener("change", function(e) {
-        const file = e.target.files[0];
-        if (file) { loadBook(file, file.name); }
-      });
-      
-      document.getElementById("downloadEPUB").addEventListener("click", function() {
-        if (typeof currentFileName === "string" && currentFileName === "LeverAction.epub") {
-          var link = document.createElement("a");
-          link.href = currentFileName;
-          link.download = currentFileName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        } else { alert("Download is only available for the default EPUB."); }
-      });
-      
-      document.getElementById("toggleFullscreen").addEventListener("click", function() {
-        let elem = document.documentElement;
-        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-          if (elem.requestFullscreen) { elem.requestFullscreen(); }
-          else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); }
-          else { alert("Fullscreen mode is not supported on your device."); }
-        } else {
-          if (document.exitFullscreen) { document.exitFullscreen(); }
-          else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); }
-        }
-      });
-      
-      document.getElementById("increaseFont").addEventListener("click", function() {
-        currentFontSize += 2;
-        if (currentRendition && currentRendition.themes) {
-          currentRendition.themes.fontSize(currentFontSize + "px");
-        }
-      });
-      document.getElementById("decreaseFont").addEventListener("click", function() {
-        currentFontSize = Math.max(10, currentFontSize - 2);
-        if (currentRendition && currentRendition.themes) {
-          currentRendition.themes.fontSize(currentFontSize + "px");
-        }
-      });
-      
-      document.addEventListener("keydown", function(e) {
-        if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
-        if (e.key === "ArrowLeft") { if (currentRendition) currentRendition.prev(); }
-        else if (e.key === "ArrowRight") { if (currentRendition) currentRendition.next(); }
-      });
-      
-      // -------------------------- 
-      // Mobile Bottom Navigation Bar Events 
-      // -------------------------- 
-      document.getElementById("mPrev").addEventListener("click", function() {
-        if (currentRendition) currentRendition.prev();
-      });
-      document.getElementById("mNext").addEventListener("click", function() {
-        if (currentRendition) currentRendition.next();
-      });
-      document.getElementById("mTOC").addEventListener("click", function() {
-        let toc = document.getElementById("toc");
-        if (toc.classList.contains("visible")) { hideTOC(); }
-        else { showTOC(); }
-      });
-      document.getElementById("mMenu").addEventListener("click", function() {
-        // Show the mobile menu modal overlay
-        document.getElementById("mobileMenu").classList.remove("hidden");
-        document.getElementById("mobileMenu").style.display = "block";
-      });
-      
-      // Mobile Menu Modal Button Events
-      document.getElementById("mToggleTheme").addEventListener("click", function() {
-        document.documentElement.classList.toggle("dark");
-        if (document.documentElement.classList.contains("dark")) {
-          localStorage.setItem("theme", "dark");
-        } else {
-          localStorage.setItem("theme", "light");
-        }
-        if (currentRendition) {
-          currentRendition.themes.select(document.documentElement.classList.contains("dark") ? "dark" : "default");
-        }
-      });
-      document.getElementById("mDownloadEPUB").addEventListener("click", function() {
-        if (typeof currentFileName === "string" && currentFileName === "LeverAction.epub") {
-          var link = document.createElement("a");
-          link.href = currentFileName;
-          link.download = currentFileName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        } else { alert("Download is only available for the default EPUB."); }
-      });
-      document.getElementById("mToggleFullscreen").addEventListener("click", function() {
-        let elem = document.documentElement;
-        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-          if (elem.requestFullscreen) { elem.requestFullscreen(); }
-          else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); }
-          else { alert("Fullscreen mode is not supported on your device."); }
-        } else {
-          if (document.exitFullscreen) { document.exitFullscreen(); }
-          else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); }
-        }
-      });
-      document.getElementById("mIncreaseFont").addEventListener("click", function() {
-        currentFontSize += 2;
-        if (currentRendition && currentRendition.themes) {
-          currentRendition.themes.fontSize(currentFontSize + "px");
-        }
-      });
-      document.getElementById("mDecreaseFont").addEventListener("click", function() {
-        currentFontSize = Math.max(10, currentFontSize - 2);
-        if (currentRendition && currentRendition.themes) {
-          currentRendition.themes.fontSize(currentFontSize + "px");
-        }
-      });
-      document.getElementById("mAddBookmark").addEventListener("click", function() {
-        addBookmark();
-      });
-      document.getElementById("mBookmarkManager").addEventListener("click", function() {
-        showBookmarkManager();
-      });
-      document.getElementById("mTogglePageMode").addEventListener("click", function() {
-        if (window.innerWidth < 769) {
-          alert("Page mode toggle is available on desktop only.");
-          return;
-        }
-        onePageMode = !onePageMode;
-        const currentLocation = currentRendition.currentLocation();
-        const cfi = currentLocation ? currentLocation.start.cfi : undefined;
-        loadBook(currentFileName, currentFileName);
-        if (cfi) { currentRendition.display(cfi); }
-        if (onePageMode) {
-          document.getElementById("reader").classList.add("one-page");
-          setTimeout(scaleOnePageContent, 300);
-        } else {
-          document.getElementById("reader").classList.remove("one-page");
-        }
-        alert("Page mode is now set to " + (onePageMode ? "One Page (Centered)" : "Spread Mode") + ".");
-      });
-      document.getElementById("mCloseMenu").addEventListener("click", function() {
-        // Hide the mobile menu overlay
-        document.getElementById("mobileMenu").classList.add("hidden");
-        document.getElementById("mobileMenu").style.display = "none";
-      });
-      
-      // On-screen mobile page turning buttons (left/right)
-      document.getElementById("mobileNavLeft").addEventListener("click", function() {
-        if (currentRendition) currentRendition.prev();
-      });
-      document.getElementById("mobileNavRight").addEventListener("click", function() {
-        if (currentRendition) currentRendition.next();
-      });
-      
-      window.addEventListener("resize", function() {
-        if (document.getElementById("reader").classList.contains("one-page")) {
-          scaleOnePageContent();
-        }
-      });
-    });
-    
-    // -------------------------- 
-    // Service Worker Registration 
-    // -------------------------- 
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
-        navigator.serviceWorker.register('/service-worker.js')
-        .then(function(registration) {
-          console.log('ServiceWorker registration successful with scope: ', registration.scope);
-        }, function(err) {
-          console.log('ServiceWorker registration failed: ', err);
-        });
+
+      item.addEventListener("click", () => {
+        openBook(entry.filePath, currentTheme);
       });
     }
+  }
+
+  async function openBook(filePath, theme, cfi=null) {
+    currentFile = filePath;
+    currentTheme = theme;
+
+    const libScreen = document.getElementById("libraryScreen");
+    const readerScreen = document.getElementById("readerScreen");
+    libScreen.classList.add("hidden");
+    readerScreen.classList.remove("hidden");
+
+    if (rendition) {
+      rendition.destroy();
+      rendition = null;
+    }
+
+    currentBook = ePub(filePath);
+    rendition = currentBook.renderTo("reader", {
+      width: "100%",
+      height: "100%",
+      manager: "default",
+      flow: "paginated"
+    });
+
+    // Opacity = 0 for #reader by default; we'll fade in after load
+    const readerEl = document.getElementById("reader");
+    readerEl.style.opacity = "0";
+
+    // Register theme definitions
+    rendition.themes.register("light", {
+      body: { background: "#ffffff", color: "#000000" }
+    });
+    rendition.themes.register("dark", {
+      body: { background: "#1e1e1e", color: "#f5f5f5" }
+    });
+
+    rendition.themes.select(theme);
+    rendition.themes.fontSize(currentFontSize + "px");
+
+    // If no cfi, restore from localStorage
+    if (!cfi) {
+      const savedLoc = localStorage.getItem(`loc-${filePath}`);
+      cfi = savedLoc || null;
+    }
+    await rendition.display(cfi);
+
+    await currentBook.ready;
+    await currentBook.locations.generate(1024);
+
+    rendition.on("relocated", (location) => {
+      if (location?.start?.cfi) {
+        localStorage.setItem(`loc-${filePath}`, location.start.cfi);
+        updatePageInfo(location);
+      }
+    });
+
+    // Force arrow keys each chapter
+    rendition.on("rendered", () => {
+      attachChapterKeys();
+      focusEPUB();
+    });
+
+    // Click for page nav if no selection
+    rendition.on("click", (ev) => {
+      const sel = window.getSelection()?.toString().trim();
+      const frameSel = rendition.getRange()?.toString().trim();
+      if (sel || frameSel) return;
+      const bounds = ev.target.getBoundingClientRect();
+      const x = ev.clientX - bounds.left;
+      if (x < bounds.width / 2) rendition.prev();
+      else rendition.next();
+    });
+
+    attachChapterKeys();
+
+    // FADE IN: Just 50ms delay, then let the CSS do a 0.2s fade
+    setTimeout(() => {
+      readerEl.style.opacity = "1";
+    }, 50);
+  }
+
+  function attachChapterKeys() {
+    if (!rendition) return;
+    rendition.getContents().forEach((contents) => {
+      const doc = contents.document;
+      if (!doc) return;
+      doc.body.setAttribute("tabindex", "0");
+      doc.body.addEventListener("click", () => doc.body.focus());
+      doc.body.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowLeft") rendition.prev();
+        else if (e.key === "ArrowRight") rendition.next();
+      });
+    });
+  }
+
+  function focusEPUB() {
+    const contents = rendition?.getContents();
+    if (!contents?.length) return;
+    const doc = contents[0].document;
+    if (!doc) return;
+    doc.body.focus();
+  }
+
+  function updatePageInfo(location) {
+    const pageInfoEl = document.getElementById("pageInfo");
+    if (!currentBook?.locations) {
+      pageInfoEl.textContent = `Loc: ${location.start.cfi}`;
+      return;
+    }
+    const currentPage = currentBook.locations.locationFromCfi(location.start.cfi);
+    const total = currentBook.locations.total;
+    if (currentPage != null && total) {
+      pageInfoEl.textContent = `Page ${currentPage} of ${total}`;
+    } else {
+      pageInfoEl.textContent = "Loading pages...";
+    }
+  }
+
+  function buildTOC() {
+    if (!currentBook?.navigation) return;
+    const tocEl = document.getElementById("toc");
+    tocEl.innerHTML = "";
+    currentBook.loaded.navigation.then((nav) => {
+      const ul = document.createElement("ul");
+      nav.toc.forEach((chapter) => {
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        a.textContent = chapter.label;
+        a.href = "#";
+        a.onclick = (e) => {
+          e.preventDefault();
+          rendition.display(chapter.href);
+          if (window.innerWidth < 768) toggleTOC(true);
+        };
+        li.appendChild(a);
+        ul.appendChild(li);
+      });
+      tocEl.appendChild(ul);
+    });
+  }
+  function toggleTOC(forceHide=false) {
+    const tocEl = document.getElementById("toc");
+    if (forceHide) {
+      tocEl.classList.add("hidden");
+      return;
+    }
+    tocEl.classList.toggle("hidden");
+    if (window.innerWidth < 768) {
+      if (!tocEl.classList.contains("hidden")) {
+        tocEl.style.transform = "translateY(0)";
+      } else {
+        tocEl.style.transform = "translateY(-100%)";
+      }
+    }
+  }
+
+  function addBookmark() {
+    if (!rendition) return;
+    const loc = rendition.currentLocation();
+    if (!loc?.start?.cfi) return;
+    const cfi = loc.start.cfi;
+    const pageIndex = currentBook.locations.locationFromCfi(cfi);
+    const label = (pageIndex != null) ? `Page ${pageIndex}` : `CFI: ${cfi}`;
+
+    const key = "bookmarks-" + currentFile;
+    let bookmarks = JSON.parse(localStorage.getItem(key) || "[]");
+    bookmarks.push({ cfi, label });
+    localStorage.setItem(key, JSON.stringify(bookmarks));
+    alert(`Bookmark added at ${label}`);
+  }
+  function showBookmarkManager() {
+    document.getElementById("bookmarkManager").classList.remove("hidden");
+    updateBookmarkList();
+  }
+  function hideBookmarkManager() {
+    document.getElementById("bookmarkManager").classList.add("hidden");
+  }
+  function updateBookmarkList() {
+    const list = document.getElementById("bookmarkList");
+    list.innerHTML = "";
+    const key = "bookmarks-" + currentFile;
+    const bookmarks = JSON.parse(localStorage.getItem(key) || "[]");
+    if (!bookmarks.length) {
+      const li = document.createElement("li");
+      li.textContent = "No bookmarks yet.";
+      list.appendChild(li);
+      return;
+    }
+    bookmarks.forEach((bm, idx) => {
+      const li = document.createElement("li");
+      li.textContent = bm.label;
+      li.style.cursor = "pointer";
+      li.addEventListener("click", () => {
+        rendition.display(bm.cfi);
+        hideBookmarkManager();
+      });
+      const delBtn = document.createElement("button");
+      delBtn.textContent = "Delete";
+      delBtn.style.marginLeft = "1rem";
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        bookmarks.splice(idx, 1);
+        localStorage.setItem(key, JSON.stringify(bookmarks));
+        updateBookmarkList();
+      };
+      li.appendChild(delBtn);
+      list.appendChild(li);
+    });
+  }
+
+  function downloadEPUB() {
+    if (!currentFile) {
+      alert("No book is open.");
+      return;
+    }
+    try {
+      const link = document.createElement("a");
+      link.href = currentFile;
+      link.download = currentFile.split("/").pop() || "book.epub";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      alert("Download failed: " + err);
+    }
+  }
+
+  window.addEventListener("load", () => {
+    // Prev/Next
+    document.getElementById("prevPage").onclick = () => rendition?.prev();
+    document.getElementById("nextPage").onclick = () => rendition?.next();
+
+    // TOC
+    document.getElementById("toggleTOC").onclick = () => {
+      buildTOC();
+      toggleTOC();
+    };
+
+    // Theme
+    document.getElementById("toggleTheme").onclick = () => {
+      const cfi = rendition?.currentLocation()?.start?.cfi || null;
+      if (currentTheme === "light") {
+        currentTheme = "dark";
+        document.body.classList.add("dark");
+        localStorage.setItem("theme", "dark");
+      } else {
+        currentTheme = "light";
+        document.body.classList.remove("dark");
+        localStorage.setItem("theme", "light");
+      }
+      if (rendition) {
+        rendition.destroy();
+        rendition = null;
+      }
+      openBook(currentFile, currentTheme, cfi);
+    };
+
+    // Font
+    document.getElementById("fontIncrease").onclick = () => {
+      currentFontSize = Math.min(48, currentFontSize + 2);
+      localStorage.setItem("fontSize", currentFontSize);
+      const cfi = rendition?.currentLocation()?.start?.cfi || null;
+      if (rendition) { rendition.destroy(); rendition=null; }
+      openBook(currentFile, currentTheme, cfi);
+    };
+    document.getElementById("fontDecrease").onclick = () => {
+      currentFontSize = Math.max(10, currentFontSize - 2);
+      localStorage.setItem("fontSize", currentFontSize);
+      const cfi = rendition?.currentLocation()?.start?.cfi || null;
+      if (rendition) { rendition.destroy(); rendition=null; }
+      openBook(currentFile, currentTheme, cfi);
+    };
+
+    // Bookmarks
+    document.getElementById("addBookmark").onclick = () => addBookmark();
+    document.getElementById("bookmarkManagerBtn").onclick = () => showBookmarkManager();
+    document.getElementById("closeBookmarkManager").onclick = () => hideBookmarkManager();
+
+    // Download
+    document.getElementById("downloadEPUB").onclick = () => downloadEPUB();
+
+    // Fullscreen
+    document.getElementById("toggleFullscreen").onclick = () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch((err) => {
+          alert("Fullscreen error: " + err);
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    };
+
+    // Hide UI
+    document.getElementById("hideUIBtn").onclick = () => {
+      document.getElementById("toolbar").classList.add("hidden");
+      document.getElementById("showUIBtn").style.display = "block";
+    };
+    // Show UI
+    document.getElementById("showUIBtn").onclick = () => {
+      document.getElementById("toolbar").classList.remove("hidden");
+      document.getElementById("showUIBtn").style.display = "none";
+    };
+
+    // Back to Library
+    document.getElementById("backToLibrary").onclick = () => {
+      if (rendition) {
+        rendition.destroy();
+        rendition = null;
+      }
+      initLibrary();
+    };
+  });
+
+  // Global arrow keys when focus is outside ePub
+  document.addEventListener("keydown", (e) => {
+    if (!rendition) return;
+    if (["INPUT","TEXTAREA"].includes(e.target.tagName)) return;
+    if (e.key === "ArrowLeft") rendition.prev();
+    else if (e.key === "ArrowRight") rendition.next();
+  });
   </script>
 </body>
 </html>
