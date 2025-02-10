@@ -1,49 +1,50 @@
-// JavaScript Documentconst CACHE_NAME = 'lever-action-cache-v1';
-const urlsToCache = [
-  '/index.html',
-  '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  // Include your CSS, JS, and any other assets you want to cache
-  // For example:
-  // '/styles.css',
-  // '/script.js',
-  // Also consider caching your EPUB file if desired:
-  // '/LeverAction.epub'
+/* service-worker.js */
+
+const CACHE_NAME = "epub-mobile-cache-v1";
+const CACHE_URLS = [
+  "./",                  // might load mobile.html as root
+  "./mobile.html",
+  "./manifest.json",
+  "./service-worker.js",
+  "./icons/icon-192.png",
+  "./icons/icon-512.png",
+  "./LeverAction.epub",  // if you want to cache the entire epub offline
+  // ... add any other files you'd like offline
 ];
 
-self.addEventListener('install', event => {
+// INSTALL: Cache the essential files
+self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(CACHE_URLS);
+    })
   );
 });
 
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-         // Return the cached response if found; otherwise, fetch from network.
-         return response || fetch(event.request);
-      })
-  );
-});
-
-self.addEventListener('activate', event => {
-  const cacheWhitelist = [CACHE_NAME];
+// ACTIVATE: Clean up old caches if needed
+self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then(cacheNames => {
+    caches.keys().then((keyList) => {
       return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
+        keyList.map((key) => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
           }
         })
       );
+    })
+  );
+});
+
+// FETCH: "Cache-first" approach
+self.addEventListener("fetch", (event) => {
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      // If not in cache, fetch from network
+      return fetch(event.request);
     })
   );
 });

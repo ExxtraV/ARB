@@ -2,20 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Mobile EPUB Reader (Single Bottom Toolbar, No Extra Bars)</title>
+  <title>Mobile EPUB Reader (PWA)</title>
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1.0, user-scalable=no"
   />
+
+  <!-- Link to the web app manifest -->
+  <link rel="manifest" href="manifest.json">
 
   <!-- JSZip & epub.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.6.0/jszip.min.js"></script>
   <script src="https://unpkg.com/epubjs/dist/epub.min.js"></script>
 
   <style>
-    /****************************************
-     * Basic Page Setup (NO safe-area insets)
-    ****************************************/
+    /* -- Same CSS as your final snippet (no extra bars, single bottom toolbar) -- */
     html, body {
       margin: 0;
       padding: 0;
@@ -23,7 +24,7 @@
       font-family: "Roboto", sans-serif;
       background: #fafafa;
       color: #333;
-      overflow: hidden; /* ePub handles scroll within each chapter */
+      overflow: hidden; 
       transition: background-color 0.3s, color 0.3s;
     }
     body.dark {
@@ -34,21 +35,17 @@
       display: none !important;
     }
 
-    /****************************************
-     * Bottom Toolbar
-    ****************************************/
     .toolbar-bottom {
       position: fixed;
       bottom: 0;
-      left: 0; 
-      right: 0;
+      left: 0; right: 0;
       z-index: 9999;
       background: #333;
       color: #fff;
       padding: 0.5rem;
       display: flex;
       gap: 0.5rem;
-      flex-wrap: wrap; /* if many buttons, they can wrap */
+      flex-wrap: wrap; 
       align-items: center;
     }
     .toolbar-bottom button {
@@ -64,7 +61,6 @@
     .toolbar-bottom button:hover {
       background: #555;
     }
-    /* Page Info goes on the far right */
     #pageInfo {
       margin-left: auto;
       font-size: 0.9rem;
@@ -72,27 +68,19 @@
       flex-shrink: 0;
     }
 
-    /****************************************
-     * Reader Container
-    ****************************************/
     #reader {
       position: absolute;
       top: 0;
-      left: 0;
-      right: 0;
-      bottom: 3rem; /* space for bottom toolbar, tweak as needed */
-      overflow: hidden; 
+      left: 0; right: 0;
+      bottom: 3rem;
+      overflow: hidden;
     }
 
-    /****************************************
-     * TOC Overlay
-    ****************************************/
     #mobileTOC {
       position: absolute;
       top: 0; 
-      left: 0; 
-      right: 0;
-      bottom: 3rem; /* also leave space for bottom toolbar */
+      left: 0; right: 0;
+      bottom: 3rem; 
       background: #fff;
       color: #333;
       overflow-y: auto;
@@ -118,14 +106,10 @@
       font-weight: 500;
     }
 
-    /****************************************
-     * Bookmark Manager Modal
-    ****************************************/
     .modal {
       position: fixed;
       top: 0; left: 0;
-      width: 100%; 
-      height: 100%;
+      width: 100%; height: 100%;
       background: rgba(0,0,0,0.5);
       z-index: 20000;
       display: flex;
@@ -148,7 +132,6 @@
   </style>
 </head>
 <body>
-  <!-- Single bottom toolbar with all controls -->
   <div class="toolbar-bottom">
     <button id="prevBtn">Prev</button>
     <button id="nextBtn">Next</button>
@@ -159,10 +142,8 @@
     <span id="pageInfo">Page ? of ?</span>
   </div>
 
-  <!-- TOC overlay from the top down to just above bottom toolbar -->
   <div id="mobileTOC"></div>
 
-  <!-- Bookmark modal -->
   <div id="bookmarkModal" class="modal hidden">
     <div class="modal-content">
       <h2>Bookmarks</h2>
@@ -171,229 +152,217 @@
     </div>
   </div>
 
-  <!-- Reader above the bottom toolbar -->
   <div id="reader"></div>
 
   <script>
-  /******************************************************************************
-   * mobile.js
-   * - No safe-area insets: no extra white bars on top or bottom from our code
-   * - Single bottom toolbar with all features
-   * - scrolled-doc or default manager
-   * - Light/Dark, bookmarks, last location
-   *****************************************************************************/
+    /* Same mobile ePub reading logic as your final snippet */
+    const EPUB_FILE = "LeverAction.epub";
+    let mobileBook = null;
+    let mobileRendition = null;
+    let currentTheme = "light";
 
-  const EPUB_FILE = "LeverAction.epub"; // rename if needed
-  let mobileBook = null;
-  let mobileRendition = null;
-  let currentTheme = "light";
-
-  document.addEventListener("DOMContentLoaded", async () => {
-    // 1) Restore theme
-    const savedTheme = localStorage.getItem("mobile-theme");
-    if (savedTheme === "dark") {
-      document.body.classList.add("dark");
-      currentTheme = "dark";
-    }
-
-    // 2) Open the ePub
-    await openMobileBook(EPUB_FILE);
-
-    // 3) Hook up the bottom toolbar
-    document.getElementById("prevBtn").onclick = () => mobileRendition?.prev();
-    document.getElementById("nextBtn").onclick = () => mobileRendition?.next();
-    document.getElementById("toggleTOCBtn").onclick = () => toggleMobileTOC();
-    document.getElementById("toggleThemeBtn").onclick = () => toggleTheme();
-    document.getElementById("addBookmarkBtn").onclick = () => addBookmark();
-    document.getElementById("bookmarkManagerBtn").onclick = () => showBookmarkManager();
-    document.getElementById("closeBookmarkModal").onclick = () => hideBookmarkManager();
-  });
-
-  async function openMobileBook(filePath) {
-    if (mobileRendition) {
-      mobileRendition.destroy();
-      mobileRendition = null;
-    }
-
-    mobileBook = ePub(filePath);
-    // For each-chapter scrolled doc, but Next/Prev jumps to next/previous chapter
-    mobileRendition = mobileBook.renderTo("reader", {
-      width: "100%",
-      height: "100%",
-      manager: "default",
-      flow: "scrolled-doc",
-      spread: "none"
-    });
-
-    // Register light/dark theme in ePub
-    mobileRendition.themes.register("light", {
-      body: { background: "#ffffff", color: "#000000" }
-    });
-    mobileRendition.themes.register("dark", {
-      body: { background: "#1e1e1e", color: "#f5f5f5" }
-    });
-    mobileRendition.themes.select(currentTheme);
-
-    await mobileBook.ready;
-    await mobileBook.locations.generate(1024);
-
-    // Resume last location if any
-    const locKey = `mobile-loc-${filePath}`;
-    const savedLoc = localStorage.getItem(locKey);
-    if (savedLoc) {
-      await mobileRendition.display(savedLoc);
-    } else {
-      await mobileRendition.display();
-    }
-
-    // On relocate => store loc & update page info
-    mobileRendition.on("relocated", (loc) => {
-      if (loc?.start?.cfi) {
-        localStorage.setItem(locKey, loc.start.cfi);
-        updatePageInfo(loc);
+    document.addEventListener("DOMContentLoaded", async () => {
+      // Restore theme
+      const savedTheme = localStorage.getItem("mobile-theme");
+      if (savedTheme === "dark") {
+        document.body.classList.add("dark");
+        currentTheme = "dark";
       }
+
+      // Open ePub
+      await openMobileBook(EPUB_FILE);
+
+      // Hook up bottom toolbar
+      document.getElementById("prevBtn").onclick = () => mobileRendition?.prev();
+      document.getElementById("nextBtn").onclick = () => mobileRendition?.next();
+      document.getElementById("toggleTOCBtn").onclick = () => toggleMobileTOC();
+      document.getElementById("toggleThemeBtn").onclick = () => toggleTheme();
+      document.getElementById("addBookmarkBtn").onclick = () => addBookmark();
+      document.getElementById("bookmarkManagerBtn").onclick = () => showBookmarkManager();
+      document.getElementById("closeBookmarkModal").onclick = () => hideBookmarkManager();
     });
 
-    buildMobileTOC();
-  }
+    async function openMobileBook(filePath) {
+      if (mobileRendition) {
+        mobileRendition.destroy();
+        mobileRendition = null;
+      }
 
-  /** Update "Page X of Y" in #pageInfo. */
-  function updatePageInfo(location) {
-    const pageInfoEl = document.getElementById("pageInfo");
-    if (!mobileBook?.locations) {
-      pageInfoEl.textContent = `Loc: ${location.start.cfi}`;
-      return;
-    }
-    const currentPage = mobileBook.locations.locationFromCfi(location.start.cfi);
-    const total = mobileBook.locations.total;
-    if (currentPage != null && total) {
-      pageInfoEl.textContent = `Page ${currentPage} of ${total}`;
-    } else {
-      pageInfoEl.textContent = "Loading...";
-    }
-  }
-
-  /** Build a TOC overlay. */
-  function buildMobileTOC() {
-    const tocEl = document.getElementById("mobileTOC");
-    tocEl.innerHTML = "";
-    if (!mobileBook?.loaded?.navigation) return;
-
-    mobileBook.loaded.navigation.then((nav) => {
-      const ul = document.createElement("ul");
-      nav.toc.forEach((chapter) => {
-        const li = document.createElement("li");
-        const a = document.createElement("a");
-        a.textContent = chapter.label;
-        a.href = "#";
-        a.onclick = (e) => {
-          e.preventDefault();
-          mobileRendition.display(chapter.href);
-          toggleMobileTOC(true); // hide overlay
-        };
-        li.appendChild(a);
-        ul.appendChild(li);
+      mobileBook = ePub(filePath);
+      mobileRendition = mobileBook.renderTo("reader", {
+        width: "100%",
+        height: "100%",
+        manager: "default",
+        flow: "scrolled-doc",
+        spread: "none"
       });
-      tocEl.appendChild(ul);
-    });
-  }
 
-  /** Slide the #mobileTOC from the top. */
-  function toggleMobileTOC(forceHide=false) {
-    const tocEl = document.getElementById("mobileTOC");
-    if (forceHide) {
-      tocEl.style.transform = "translateY(-100%)";
-      return;
-    }
-    if (tocEl.style.transform === "translateY(0%)") {
-      tocEl.style.transform = "translateY(-100%)";
-    } else {
-      tocEl.style.transform = "translateY(0%)";
-    }
-  }
-
-  /** Toggle light/dark in UI & ePub. */
-  function toggleTheme() {
-    if (currentTheme === "light") {
-      currentTheme = "dark";
-      document.body.classList.add("dark");
-      localStorage.setItem("mobile-theme", "dark");
-    } else {
-      currentTheme = "light";
-      document.body.classList.remove("dark");
-      localStorage.setItem("mobile-theme", "light");
-    }
-    if (mobileRendition) {
+      // Register themes
+      mobileRendition.themes.register("light", {
+        body: { background: "#ffffff", color: "#000000" }
+      });
+      mobileRendition.themes.register("dark", {
+        body: { background: "#1e1e1e", color: "#f5f5f5" }
+      });
       mobileRendition.themes.select(currentTheme);
-    }
-  }
 
-  /** Add a bookmark for current location. */
-  function addBookmark() {
-    if (!mobileRendition) return;
-    const loc = mobileRendition.currentLocation();
-    if (!loc?.start?.cfi) return;
+      await mobileBook.ready;
+      await mobileBook.locations.generate(1024);
 
-    const cfi = loc.start.cfi;
-    const pageIndex = mobileBook.locations.locationFromCfi(cfi);
-    const label = pageIndex !== null ? `Page ${pageIndex}` : `CFI: ${cfi}`;
+      const locKey = `mobile-loc-${filePath}`;
+      const savedLoc = localStorage.getItem(locKey);
+      if (savedLoc) {
+        await mobileRendition.display(savedLoc);
+      } else {
+        await mobileRendition.display();
+      }
 
-    const key = `mobile-bookmarks-${EPUB_FILE}`;
-    const bookmarks = JSON.parse(localStorage.getItem(key) || "[]");
-    bookmarks.push({ cfi, label });
-    localStorage.setItem(key, JSON.stringify(bookmarks));
-
-    alert(`Bookmark added at ${label}`);
-  }
-
-  /** Show bookmark manager. */
-  function showBookmarkManager() {
-    updateBookmarkList();
-    document.getElementById("bookmarkModal").classList.remove("hidden");
-  }
-  function hideBookmarkManager() {
-    document.getElementById("bookmarkModal").classList.add("hidden");
-  }
-
-  /** Populate bookmark list. */
-  function updateBookmarkList() {
-    const listEl = document.getElementById("bookmarkList");
-    listEl.innerHTML = "";
-    const key = `mobile-bookmarks-${EPUB_FILE}`;
-    const bookmarks = JSON.parse(localStorage.getItem(key) || "[]");
-
-    if (!bookmarks.length) {
-      const li = document.createElement("li");
-      li.textContent = "No bookmarks yet.";
-      listEl.appendChild(li);
-      return;
-    }
-
-    bookmarks.forEach((bm, idx) => {
-      const li = document.createElement("li");
-      li.style.cursor = "pointer";
-      li.textContent = bm.label;
-
-      li.addEventListener("click", () => {
-        mobileRendition.display(bm.cfi);
-        hideBookmarkManager();
+      mobileRendition.on("relocated", (loc) => {
+        if (loc?.start?.cfi) {
+          localStorage.setItem(locKey, loc.start.cfi);
+          updatePageInfo(loc);
+        }
       });
 
-      // optional delete
-      const delBtn = document.createElement("button");
-      delBtn.textContent = "Delete";
-      delBtn.style.marginLeft = "0.5rem";
-      delBtn.onclick = (e) => {
-        e.stopPropagation();
-        bookmarks.splice(idx, 1);
-        localStorage.setItem(key, JSON.stringify(bookmarks));
-        updateBookmarkList();
-      };
-      li.appendChild(delBtn);
+      buildMobileTOC();
+    }
 
-      listEl.appendChild(li);
-    });
-  }
+    function updatePageInfo(location) {
+      const pageInfoEl = document.getElementById("pageInfo");
+      if (!mobileBook?.locations) {
+        pageInfoEl.textContent = `Loc: ${location.start.cfi}`;
+        return;
+      }
+      const currentPage = mobileBook.locations.locationFromCfi(location.start.cfi);
+      const total = mobileBook.locations.total;
+      if (currentPage != null && total) {
+        pageInfoEl.textContent = `Page ${currentPage} of ${total}`;
+      } else {
+        pageInfoEl.textContent = "Loading...";
+      }
+    }
+
+    function buildMobileTOC() {
+      const tocEl = document.getElementById("mobileTOC");
+      tocEl.innerHTML = "";
+      if (!mobileBook?.loaded?.navigation) return;
+
+      mobileBook.loaded.navigation.then((nav) => {
+        const ul = document.createElement("ul");
+        nav.toc.forEach((chapter) => {
+          const li = document.createElement("li");
+          const a = document.createElement("a");
+          a.textContent = chapter.label;
+          a.href = "#";
+          a.onclick = (e) => {
+            e.preventDefault();
+            mobileRendition.display(chapter.href);
+            toggleMobileTOC(true);
+          };
+          li.appendChild(a);
+          ul.appendChild(li);
+        });
+        tocEl.appendChild(ul);
+      });
+    }
+
+    function toggleMobileTOC(forceHide=false) {
+      const tocEl = document.getElementById("mobileTOC");
+      if (forceHide) {
+        tocEl.style.transform = "translateY(-100%)";
+        return;
+      }
+      if (tocEl.style.transform === "translateY(0%)") {
+        tocEl.style.transform = "translateY(-100%)";
+      } else {
+        tocEl.style.transform = "translateY(0%)";
+      }
+    }
+
+    function toggleTheme() {
+      if (currentTheme === "light") {
+        currentTheme = "dark";
+        document.body.classList.add("dark");
+        localStorage.setItem("mobile-theme", "dark");
+      } else {
+        currentTheme = "light";
+        document.body.classList.remove("dark");
+        localStorage.setItem("mobile-theme", "light");
+      }
+      if (mobileRendition) {
+        mobileRendition.themes.select(currentTheme);
+      }
+    }
+
+    function addBookmark() {
+      if (!mobileRendition) return;
+      const loc = mobileRendition.currentLocation();
+      if (!loc?.start?.cfi) return;
+      const cfi = loc.start.cfi;
+      const pageIndex = mobileBook.locations.locationFromCfi(cfi);
+      const label = pageIndex !== null ? `Page ${pageIndex}` : `CFI: ${cfi}`;
+
+      const key = `mobile-bookmarks-${EPUB_FILE}`;
+      const bookmarks = JSON.parse(localStorage.getItem(key) || "[]");
+      bookmarks.push({ cfi, label });
+      localStorage.setItem(key, JSON.stringify(bookmarks));
+
+      alert(`Bookmark added at ${label}`);
+    }
+
+    function showBookmarkManager() {
+      updateBookmarkList();
+      document.getElementById("bookmarkModal").classList.remove("hidden");
+    }
+    function hideBookmarkManager() {
+      document.getElementById("bookmarkModal").classList.add("hidden");
+    }
+
+    function updateBookmarkList() {
+      const listEl = document.getElementById("bookmarkList");
+      listEl.innerHTML = "";
+      const key = `mobile-bookmarks-${EPUB_FILE}`;
+      const bookmarks = JSON.parse(localStorage.getItem(key) || "[]");
+
+      if (!bookmarks.length) {
+        const li = document.createElement("li");
+        li.textContent = "No bookmarks yet.";
+        listEl.appendChild(li);
+        return;
+      }
+
+      bookmarks.forEach((bm, idx) => {
+        const li = document.createElement("li");
+        li.style.cursor = "pointer";
+        li.textContent = bm.label;
+        li.addEventListener("click", () => {
+          mobileRendition.display(bm.cfi);
+          hideBookmarkManager();
+        });
+
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "Delete";
+        delBtn.style.marginLeft = "0.5rem";
+        delBtn.onclick = (e) => {
+          e.stopPropagation();
+          bookmarks.splice(idx, 1);
+          localStorage.setItem(key, JSON.stringify(bookmarks));
+          updateBookmarkList();
+        };
+        li.appendChild(delBtn);
+
+        listEl.appendChild(li);
+      });
+    }
+
+    /* REGISTER THE SERVICE WORKER */
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js')
+          .then(reg => console.log('SW registered:', reg))
+          .catch(err => console.error('SW registration failed:', err));
+      });
+    }
   </script>
 </body>
 </html>
