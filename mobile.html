@@ -1,9 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Mobile EPUB Reader (Scrolled Chapter + Page Turn Between Chapters)</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta charset="UTF-8" />
+  <title>Mobile EPUB Reader (Single Bottom Toolbar, No Extra Bars)</title>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, user-scalable=no"
+  />
 
   <!-- JSZip & epub.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.6.0/jszip.min.js"></script>
@@ -11,30 +14,32 @@
 
   <style>
     /****************************************
-     * General Page Setup
+     * Basic Page Setup (NO safe-area insets)
     ****************************************/
     html, body {
-      margin: 0; 
+      margin: 0;
       padding: 0;
       height: 100vh;
       font-family: "Roboto", sans-serif;
       background: #fafafa;
       color: #333;
-      overflow: hidden; /* ePub handles scrolling within each chapter */
+      overflow: hidden; /* ePub handles scroll within each chapter */
       transition: background-color 0.3s, color 0.3s;
     }
     body.dark {
       background: #1e1e1e;
       color: #f5f5f5;
     }
-    .hidden { display: none !important; }
+    .hidden {
+      display: none !important;
+    }
 
     /****************************************
-     * Single Bottom Toolbar
+     * Bottom Toolbar
     ****************************************/
     .toolbar-bottom {
       position: fixed;
-      bottom: 0; 
+      bottom: 0;
       left: 0; 
       right: 0;
       z-index: 9999;
@@ -42,8 +47,8 @@
       color: #fff;
       padding: 0.5rem;
       display: flex;
-      flex-wrap: wrap;
       gap: 0.5rem;
+      flex-wrap: wrap; /* if many buttons, they can wrap */
       align-items: center;
     }
     .toolbar-bottom button {
@@ -59,7 +64,7 @@
     .toolbar-bottom button:hover {
       background: #555;
     }
-    /* The Page Info label can go to the far right */
+    /* Page Info goes on the far right */
     #pageInfo {
       margin-left: auto;
       font-size: 0.9rem;
@@ -68,15 +73,15 @@
     }
 
     /****************************************
-     * The Reader Container
+     * Reader Container
     ****************************************/
     #reader {
       position: absolute;
       top: 0;
       left: 0;
       right: 0;
-      bottom: 3rem; /* space for bottom toolbar */
-      overflow: hidden; /* Each chapter is scrolled internally by epub.js */
+      bottom: 3rem; /* space for bottom toolbar, tweak as needed */
+      overflow: hidden; 
     }
 
     /****************************************
@@ -86,8 +91,8 @@
       position: absolute;
       top: 0; 
       left: 0; 
-      right: 0; 
-      bottom: 3rem; /* leave space for bottom toolbar */
+      right: 0;
+      bottom: 3rem; /* also leave space for bottom toolbar */
       background: #fff;
       color: #333;
       overflow-y: auto;
@@ -114,12 +119,12 @@
     }
 
     /****************************************
-     * Bookmark Modal
+     * Bookmark Manager Modal
     ****************************************/
     .modal {
       position: fixed;
       top: 0; left: 0;
-      width: 100%;
+      width: 100%; 
       height: 100%;
       background: rgba(0,0,0,0.5);
       z-index: 20000;
@@ -143,7 +148,7 @@
   </style>
 </head>
 <body>
-  <!-- Bottom Toolbar with all features -->
+  <!-- Single bottom toolbar with all controls -->
   <div class="toolbar-bottom">
     <button id="prevBtn">Prev</button>
     <button id="nextBtn">Next</button>
@@ -154,10 +159,10 @@
     <span id="pageInfo">Page ? of ?</span>
   </div>
 
-  <!-- TOC Overlay (slides down from top) -->
+  <!-- TOC overlay from the top down to just above bottom toolbar -->
   <div id="mobileTOC"></div>
 
-  <!-- Bookmark Modal -->
+  <!-- Bookmark modal -->
   <div id="bookmarkModal" class="modal hidden">
     <div class="modal-content">
       <h2>Bookmarks</h2>
@@ -166,34 +171,35 @@
     </div>
   </div>
 
-  <!-- Reader container above the bottom toolbar -->
+  <!-- Reader above the bottom toolbar -->
   <div id="reader"></div>
 
   <script>
   /******************************************************************************
    * mobile.js
-   * - Each chapter is scrolled internally ("scrolled-doc") 
-   * - Next/Prev -> jumps to next/previous chapter
-   * - Light/Dark mode, bookmarks, TOC, resume location
+   * - No safe-area insets: no extra white bars on top or bottom from our code
+   * - Single bottom toolbar with all features
+   * - scrolled-doc or default manager
+   * - Light/Dark, bookmarks, last location
    *****************************************************************************/
 
-  const EPUB_FILE = "LeverAction.epub"; // Adjust if your file is different
+  const EPUB_FILE = "LeverAction.epub"; // rename if needed
   let mobileBook = null;
   let mobileRendition = null;
   let currentTheme = "light";
 
   document.addEventListener("DOMContentLoaded", async () => {
-    // Restore theme
+    // 1) Restore theme
     const savedTheme = localStorage.getItem("mobile-theme");
     if (savedTheme === "dark") {
       document.body.classList.add("dark");
       currentTheme = "dark";
     }
 
-    // Open the ePub
+    // 2) Open the ePub
     await openMobileBook(EPUB_FILE);
 
-    // Hook up toolbar buttons
+    // 3) Hook up the bottom toolbar
     document.getElementById("prevBtn").onclick = () => mobileRendition?.prev();
     document.getElementById("nextBtn").onclick = () => mobileRendition?.next();
     document.getElementById("toggleTOCBtn").onclick = () => toggleMobileTOC();
@@ -209,21 +215,17 @@
       mobileRendition = null;
     }
 
-    // Create the ePub Book object
     mobileBook = ePub(filePath);
-
-    // Render with scrolled-doc + manager: default
-    // => each chapter is scrolled, next/prev jumps to next/previous chapter
+    // For each-chapter scrolled doc, but Next/Prev jumps to next/previous chapter
     mobileRendition = mobileBook.renderTo("reader", {
       width: "100%",
       height: "100%",
+      manager: "default",
       flow: "scrolled-doc",
-      manager: "default", 
-      spread: "none"  // no two-page spread
-      // gap: 0 can be changed if you want extra spacing between content
+      spread: "none"
     });
 
-    // Register "light" & "dark" theme in ePub
+    // Register light/dark theme in ePub
     mobileRendition.themes.register("light", {
       body: { background: "#ffffff", color: "#000000" }
     });
@@ -235,7 +237,7 @@
     await mobileBook.ready;
     await mobileBook.locations.generate(1024);
 
-    // Resume last location
+    // Resume last location if any
     const locKey = `mobile-loc-${filePath}`;
     const savedLoc = localStorage.getItem(locKey);
     if (savedLoc) {
@@ -244,7 +246,7 @@
       await mobileRendition.display();
     }
 
-    // Store new location & update page info
+    // On relocate => store loc & update page info
     mobileRendition.on("relocated", (loc) => {
       if (loc?.start?.cfi) {
         localStorage.setItem(locKey, loc.start.cfi);
@@ -252,11 +254,10 @@
       }
     });
 
-    // Build a simple TOC
     buildMobileTOC();
   }
 
-  /** Update #pageInfo => "Page X of Y" */
+  /** Update "Page X of Y" in #pageInfo. */
   function updatePageInfo(location) {
     const pageInfoEl = document.getElementById("pageInfo");
     if (!mobileBook?.locations) {
@@ -272,7 +273,7 @@
     }
   }
 
-  /** Build a minimal TOC overlay. */
+  /** Build a TOC overlay. */
   function buildMobileTOC() {
     const tocEl = document.getElementById("mobileTOC");
     tocEl.innerHTML = "";
@@ -288,7 +289,7 @@
         a.onclick = (e) => {
           e.preventDefault();
           mobileRendition.display(chapter.href);
-          toggleMobileTOC(true); // hide after selection
+          toggleMobileTOC(true); // hide overlay
         };
         li.appendChild(a);
         ul.appendChild(li);
@@ -297,7 +298,7 @@
     });
   }
 
-  /** Slide #mobileTOC in/out from top. */
+  /** Slide the #mobileTOC from the top. */
   function toggleMobileTOC(forceHide=false) {
     const tocEl = document.getElementById("mobileTOC");
     if (forceHide) {
@@ -311,7 +312,7 @@
     }
   }
 
-  /** Toggle light/dark for UI & ePub. */
+  /** Toggle light/dark in UI & ePub. */
   function toggleTheme() {
     if (currentTheme === "light") {
       currentTheme = "dark";
@@ -345,18 +346,16 @@
     alert(`Bookmark added at ${label}`);
   }
 
-  /** Show the bookmark manager modal. */
+  /** Show bookmark manager. */
   function showBookmarkManager() {
     updateBookmarkList();
     document.getElementById("bookmarkModal").classList.remove("hidden");
   }
-
-  /** Hide the bookmark manager modal. */
   function hideBookmarkManager() {
     document.getElementById("bookmarkModal").classList.add("hidden");
   }
 
-  /** Populate the bookmark list. */
+  /** Populate bookmark list. */
   function updateBookmarkList() {
     const listEl = document.getElementById("bookmarkList");
     listEl.innerHTML = "";
@@ -372,14 +371,15 @@
 
     bookmarks.forEach((bm, idx) => {
       const li = document.createElement("li");
-      li.textContent = bm.label;
       li.style.cursor = "pointer";
+      li.textContent = bm.label;
+
       li.addEventListener("click", () => {
         mobileRendition.display(bm.cfi);
         hideBookmarkManager();
       });
 
-      // optional delete button
+      // optional delete
       const delBtn = document.createElement("button");
       delBtn.textContent = "Delete";
       delBtn.style.marginLeft = "0.5rem";
