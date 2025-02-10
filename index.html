@@ -239,20 +239,31 @@
 
   <script>
   /**********************************************************************
-   * Inline script.js
+   * script.js (inlined)
+   * ADDED: Mobile redirect logic at the start of DOMContentLoaded
    **********************************************************************/
+
   let currentBook = null;
   let rendition = null;
   let currentFile = "";
   let currentTheme = "light"; // or "dark"
   let currentFontSize = 16;
 
+  // Example library data
   const libraryData = [
     { title: "Lever Action (Default)", filePath: "LeverAction.epub" },
     { title: "Sample Book", filePath: "SampleBook.epub" }
   ];
 
   document.addEventListener("DOMContentLoaded", async () => {
+    // 1) MOBILE REDIRECTION:
+    // If user is on a mobile device, redirect to mobile.html
+    if (/Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+      window.location.href = "mobile.html";
+      return; // don't continue
+    }
+
+    // 2) If not mobile, proceed with normal desktop logic
     // Restore theme
     const savedTheme = localStorage.getItem("theme");
     if (savedTheme === "dark") {
@@ -267,6 +278,7 @@
       if (!isNaN(parsed)) currentFontSize = parsed;
     }
 
+    // Initialize your library (desktop UI)
     await initLibrary();
   });
 
@@ -449,6 +461,7 @@
       tocEl.appendChild(ul);
     });
   }
+
   function toggleTOC(forceHide=false) {
     const tocEl = document.getElementById("toc");
     if (forceHide) {

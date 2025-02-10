@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>EPUB Reader (Mobile)</title>
+  <meta 
+    name="viewport" 
+    content="width=device-width, initial-scale=1.0, user-scalable=no"
+  />
+
+  <!-- epub.js & JSZip -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.6.0/jszip.min.js"></script>
+  <script src="https://unpkg.com/epubjs/dist/epub.min.js"></script>
+
+  <!-- Minimal mobile-friendly styling -->
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Roboto", sans-serif;
+      background: #fafafa;
+      color: #333;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Toolbar */
+    .toolbar {
+      background: #333;
+      color: #fff;
+      padding: 0.5rem;
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .toolbar button {
+      background: #444;
+      border: none;
+      color: #fff;
+      padding: 0.5rem 0.75rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .toolbar button:hover {
+      background: #555;
+    }
+    #pageInfo {
+      margin-left: auto; 
+      font-size: 0.9rem;
+      white-space: nowrap;
+    }
+
+    /* Reader container for epub.js */
+    #reader {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* TOC (absolute overlay) */
+    #mobileTOC {
+      position: absolute;
+      top: 3rem; /* same height as toolbar */
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #fff;
+      color: #333;
+      overflow-y: auto;
+      z-index: 1000;
+      transform: translateY(-100%);
+      transition: transform 0.3s ease;
+    }
+    .hidden { display: none !important; }
+    #mobileTOC ul {
+      list-style: none;
+      margin: 0; 
+      padding: 1rem;
+    }
+    #mobileTOC li {
+      margin-bottom: 0.5rem;
+    }
+    #mobileTOC a {
+      text-decoration: none;
+      color: #333;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+
+<!-- A small toolbar at the top -->
+<div class="toolbar">
+  <button id="prevBtn">Prev</button>
+  <button id="nextBtn">Next</button>
+  <button id="toggleTOCBtn">TOC</button>
+  <span id="pageInfo">Page ? of ?</span>
+</div>
+
+<!-- The mobile TOC overlay -->
+<div id="mobileTOC">
+  <!-- Populated by script -->
+</div>
+
+<!-- The ePub reading area -->
+<div id="reader"></div>
+
+<script>
+/**************************************************************************
+ * mobile.js (inlined for demo)
+ * Minimal logic for a mobile-friendly ePub reading experience.
+ **************************************************************************/
+
+let mobileBook = null;
+let mobileRendition = null;
+
+/** On DOM load, open a specific EPUB (or multiple if you like). */
+document.addEventListener("DOMContentLoaded", async () => {
+  // Example: Load "LeverAction.epub" from the same folder
+  openMobileBook("LeverAction.epub");
+});
+
+/**
+ * openMobileBook(path)
+ * - Loads the given EPUB
+ * - Uses scrolled-doc flow for a more "mobile scrolling" feel
+ * - Minimal next/prev controls
+ */
+async function openMobileBook(epubPath) {
+  // Destroy old if any
+  if (mobileRendition) {
+    mobileRendition.destroy();
+    mobileRendition = null;
+  }
+
+  mobileBook = ePub(epubPath);
+  mobileRendition = mobileBook.renderTo("reader", {
+    width: "100%",
+    height: "100%",
+    flow: "scrolled-doc",  // or "paginated" if you prefer swiping
+    manager: "continuous"
+  });
+
+  // Generate locations => we can do "Page X of Y"
+  await mobileBook.ready;
+  await mobileBook.locations.generate(1024);
+
+  // Initially show start
+  mobileRendition.display();
+
+  // On relocate => update page info
+  mobileRendition.on("relocated", (loc) => {
+    updateMobilePageInfo(loc);
+  });
+
+  // Build the TOC so user can jump chapters
+  buildMobileTOC();
+}
+
+/** Update #pageInfo => "Page X of Y" */
+function updateMobilePageInfo(loc) {
+  if (!mobileBook || !mobileBook.locations) return;
+  const pageInfoEl = document.getElementById("pageInfo");
+  const currentPage = mobileBook.locations.locationFromCfi(loc.start.cfi);
+  const total = mobileBook.locations.total;
+  if (currentPage != null && total) {
+    pageInfoEl.textContent = `Page ${currentPage} of ${total}`;
+  } else {
+    pageInfoEl.textContent = "Loading...";
+  }
+}
+
+/** Build a minimal TOC in #mobileTOC */
+function buildMobileTOC() {
+  if (!mobileBook || !mobileBook.loaded.navigation) return;
+  const tocContainer = document.getElementById("mobileTOC");
+  tocContainer.innerHTML = ""; // Clear old
+
+  mobileBook.loaded.navigation.then((nav) => {
+    const ul = document.createElement("ul");
+    nav.toc.forEach((chapter) => {
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.textContent = chapter.label;
+      a.href = "#";
+      a.onclick = (e) => {
+        e.preventDefault();
+        mobileRendition.display(chapter.href);
+        toggleMobileTOC(true); // hide after clicking
+      };
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    tocContainer.appendChild(ul);
+  });
+}
+
+/** Show/Hide the #mobileTOC overlay by adjusting transform. */
+function toggleMobileTOC(forceHide = false) {
+  const tocEl = document.getElementById("mobileTOC");
+  if (forceHide) {
+    tocEl.style.transform = "translateY(-100%)";
+    return;
+  }
+  if (tocEl.style.transform === "translateY(0%)") {
+    tocEl.style.transform = "translateY(-100%)";
+  } else {
+    tocEl.style.transform = "translateY(0%)";
+  }
+}
+
+/** Next/Prev Buttons, TOC toggle */
+window.addEventListener("load", () => {
+  document.getElementById("prevBtn").onclick = () => mobileRendition?.prev();
+  document.getElementById("nextBtn").onclick = () => mobileRendition?.next();
+  document.getElementById("toggleTOCBtn").onclick = () => toggleMobileTOC();
+});
+</script>
+</body>
+</html>
