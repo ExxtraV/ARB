@@ -2,28 +2,29 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Mobile EPUB Reader (Extra Bottom Padding + Safe Area)</title>
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, user-scalable=no"
-  />
+  <title>Mobile EPUB Reader (iOS Notch Workarounds)</title>
+
+  <!-- Important iOS meta tags -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
   <!-- JSZip & epub.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.6.0/jszip.min.js"></script>
   <script src="https://unpkg.com/epubjs/dist/epub.min.js"></script>
 
   <style>
-    /* ----------------------------------------
-       Basic Page Setup (Allow iOS safe area)
-    ---------------------------------------- */
+    /****************************************
+     * Let the page scroll if iOS shrinks the viewport
+    ****************************************/
     html, body {
       margin: 0;
       padding: 0;
-      height: 100vh;
+      min-height: 100vh;
       font-family: "Roboto", sans-serif;
       background: #fafafa;
       color: #333;
-      overflow: hidden;
+      /* No overflow: hidden => user can scroll entire page if needed */
       transition: background-color 0.3s, color 0.3s;
     }
     body.dark {
@@ -32,9 +33,9 @@
     }
     .hidden { display: none !important; }
 
-    /* ----------------------------------------
-       Bottom Toolbar
-    ---------------------------------------- */
+    /****************************************
+     * Bottom Toolbar (fixed)
+    ****************************************/
     .toolbar-bottom {
       position: fixed;
       bottom: 0; left: 0; right: 0;
@@ -44,10 +45,8 @@
       padding: 0.5rem;
       display: flex;
       gap: 0.5rem;
-      flex-wrap: wrap;
+      flex-wrap: wrap; 
       align-items: center;
-      /* If you want to accommodate iPhone’s home indicator further,
-         you can do: padding-bottom: env(safe-area-inset-bottom); */
     }
     .toolbar-bottom button {
       background: #444;
@@ -57,7 +56,7 @@
       border-radius: 4px;
       font-size: 0.9rem;
       cursor: pointer;
-      flex-shrink: 0; 
+      flex-shrink: 0;
     }
     .toolbar-bottom button:hover {
       background: #555;
@@ -66,34 +65,40 @@
       margin-left: auto;
       font-size: 0.9rem;
       white-space: nowrap;
-      flex-shrink: 0;
     }
 
-    /* ----------------------------------------
-       Reader Container
-    ---------------------------------------- */
+    /****************************************
+     * Container for the Reader
+    ****************************************/
+    #readerContainer {
+      margin-bottom: 5rem; /* so the user can scroll below the bottom UI if needed */
+      box-sizing: border-box;
+    }
+
+    /* The actual #reader for ePub */
     #reader {
-      position: absolute;
-      top: 0; 
-      left: 0; right: 0;
-      bottom: 3rem; /* space for bottom toolbar */
-      overflow: hidden; 
+      width: 100%;
+      height: 92vh; /* approximate; user can still scroll the entire page if iOS bars obscure top/bottom */
+      margin-top: 0rem; 
+      margin-bottom: 2rem; 
+      box-sizing: border-box;
+      border: 1px solid transparent; /* for debugging, set to red or something */
     }
 
-    /* ----------------------------------------
-       TOC Overlay
-    ---------------------------------------- */
+    /****************************************
+     * TOC Overlay
+    ****************************************/
     #mobileTOC {
-      position: absolute;
-      top: 0; 
-      left: 0; right: 0;
-      bottom: 3rem;
+      position: absolute; 
+      top: 0; left: 0; right: 0;
       background: #fff;
       color: #333;
       overflow-y: auto;
       transform: translateY(-100%);
       transition: transform 0.3s ease;
       z-index: 99999; 
+      /* We'll let the user scroll the page if needed, or you can fix this overlay’s height. */
+      min-height: 100vh; 
     }
     body.dark #mobileTOC {
       background: #2a2a2a;
@@ -104,23 +109,20 @@
       margin: 0; 
       padding: 1rem;
     }
-    #mobileTOC li {
-      margin-bottom: 0.5rem;
-    }
+    #mobileTOC li { margin-bottom: 0.5rem; }
     #mobileTOC a {
       text-decoration: none;
       color: inherit;
       font-weight: 500;
     }
 
-    /* ----------------------------------------
-       Bookmark Manager Modal
-    ---------------------------------------- */
+    /****************************************
+     * Bookmark Modal
+    ****************************************/
     .modal {
       position: fixed;
       top: 0; left: 0;
-      width: 100%; 
-      height: 100%;
+      width: 100%; height: 100%;
       background: rgba(0,0,0,0.5);
       z-index: 20000;
       display: flex;
@@ -143,6 +145,11 @@
   </style>
 </head>
 <body>
+  <div id="readerContainer">
+    <div id="reader"></div>
+    <div id="mobileTOC"></div>
+  </div>
+
   <div class="toolbar-bottom">
     <button id="prevBtn">Prev</button>
     <button id="nextBtn">Next</button>
@@ -153,8 +160,6 @@
     <span id="pageInfo">Page ? of ?</span>
   </div>
 
-  <div id="mobileTOC"></div>
-
   <div id="bookmarkModal" class="modal hidden">
     <div class="modal-content">
       <h2>Bookmarks</h2>
@@ -163,35 +168,21 @@
     </div>
   </div>
 
-  <div id="reader"></div>
-
   <script>
-  /* 
-     mobile.js: 
-     - Each chapter is scrolled (scrolled-doc).
-     - Next/Prev => jump to next/prev chapter.
-     - Light/Dark mode.
-     - Bookmarks, last location.
-     - Extra bottom padding includes env(safe-area-inset-bottom) for iOS + 5rem so text never hides behind toolbar or home indicator.
-  */
-
-  const EPUB_FILE = "LeverAction.epub"; // rename if needed
+  const EPUB_FILE = "LeverAction.epub";
   let mobileBook = null;
   let mobileRendition = null;
   let currentTheme = "light";
 
   document.addEventListener("DOMContentLoaded", async () => {
-    // Restore theme
     const savedTheme = localStorage.getItem("mobile-theme");
     if (savedTheme === "dark") {
       document.body.classList.add("dark");
       currentTheme = "dark";
     }
 
-    // Open the ePub
     await openMobileBook(EPUB_FILE);
 
-    // Hook up bottom toolbar
     document.getElementById("prevBtn").onclick = () => mobileRendition?.prev();
     document.getElementById("nextBtn").onclick = () => mobileRendition?.next();
     document.getElementById("toggleTOCBtn").onclick = () => toggleTOC();
@@ -211,35 +202,34 @@
     mobileRendition = mobileBook.renderTo("reader", {
       width: "100%",
       height: "100%",
-      manager: "default",
       flow: "scrolled-doc",
+      manager: "default",
       spread: "none"
     });
 
-    // Inject bottom padding in body: "5rem + env(safe-area-inset-bottom)"
-    // So it works on iOS Safari (has safe-area) & others (0).
+    // Now we add a big bottom padding plus env(safe-area-inset-bottom)
+    // e.g., 10rem to ensure iOS Safari has enough room
     mobileRendition.themes.register("light", {
       body: {
         background: "#ffffff",
         color: "#000000",
-        "padding-bottom": "calc(5rem + env(safe-area-inset-bottom))"
+        "padding-bottom": "calc(1rem + env(safe-area-inset-bottom))"
       }
     });
     mobileRendition.themes.register("dark", {
       body: {
         background: "#1e1e1e",
         color: "#f5f5f5",
-        "padding-bottom": "calc(5rem + env(safe-area-inset-bottom))"
+        "padding-bottom": "calc(1rem + env(safe-area-inset-bottom))"
       }
     });
 
-    // Select the correct theme
+    // Apply current theme
     mobileRendition.themes.select(currentTheme);
 
     await mobileBook.ready;
     await mobileBook.locations.generate(1024);
 
-    // Resume last location if any
     const locKey = `mobile-loc-${filePath}`;
     const savedLoc = localStorage.getItem(locKey);
     if (savedLoc) {
@@ -248,7 +238,6 @@
       await mobileRendition.display();
     }
 
-    // On relocated => store location & update page info
     mobileRendition.on("relocated", (loc) => {
       if (loc?.start?.cfi) {
         localStorage.setItem(locKey, loc.start.cfi);
@@ -259,7 +248,21 @@
     buildTOC();
   }
 
-  /** Build a simple TOC overlay */
+  function updatePageInfo(location) {
+    const pageInfoEl = document.getElementById("pageInfo");
+    if (!mobileBook?.locations) {
+      pageInfoEl.textContent = `Loc: ${location.start.cfi}`;
+      return;
+    }
+    const currentPage = mobileBook.locations.locationFromCfi(location.start.cfi);
+    const total = mobileBook.locations.total;
+    if (currentPage != null && total) {
+      pageInfoEl.textContent = `Page ${currentPage} of ${total}`;
+    } else {
+      pageInfoEl.textContent = "Loading...";
+    }
+  }
+
   function buildTOC() {
     const tocEl = document.getElementById("mobileTOC");
     tocEl.innerHTML = "";
@@ -284,7 +287,6 @@
     });
   }
 
-  /** Slide #mobileTOC from top */
   function toggleTOC(forceHide=false) {
     const tocEl = document.getElementById("mobileTOC");
     if (forceHide) {
@@ -298,7 +300,6 @@
     }
   }
 
-  /** Toggle light/dark for UI & ePub */
   function toggleTheme() {
     if (currentTheme === "light") {
       currentTheme = "dark";
@@ -314,7 +315,6 @@
     }
   }
 
-  /** Add a bookmark for current location */
   function addBookmark() {
     if (!mobileRendition) return;
     const loc = mobileRendition.currentLocation();
@@ -332,7 +332,6 @@
     alert(`Bookmark added at ${label}`);
   }
 
-  /** Show bookmark manager */
   function showBookmarkManager() {
     updateBookmarkList();
     document.getElementById("bookmarkModal").classList.remove("hidden");
@@ -341,7 +340,6 @@
     document.getElementById("bookmarkModal").classList.add("hidden");
   }
 
-  /** Populate bookmark list */
   function updateBookmarkList() {
     const listEl = document.getElementById("bookmarkList");
     listEl.innerHTML = "";
@@ -379,7 +377,6 @@
       listEl.appendChild(li);
     });
   }
-
   </script>
 </body>
 </html>
