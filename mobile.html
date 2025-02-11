@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Mobile EPUB Reader (Single Bottom Toolbar + Extra Bottom Padding)</title>
+  <title>Mobile EPUB Reader (Extra Bottom Padding + Safe Area)</title>
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1.0, user-scalable=no"
@@ -13,9 +13,9 @@
   <script src="https://unpkg.com/epubjs/dist/epub.min.js"></script>
 
   <style>
-    /****************************************
-     * Basic Page Setup (No extra safe-area bars)
-    ****************************************/
+    /* ----------------------------------------
+       Basic Page Setup (Allow iOS safe area)
+    ---------------------------------------- */
     html, body {
       margin: 0;
       padding: 0;
@@ -23,7 +23,7 @@
       font-family: "Roboto", sans-serif;
       background: #fafafa;
       color: #333;
-      overflow: hidden; /* epub.js will handle scrolling each chapter internally */
+      overflow: hidden;
       transition: background-color 0.3s, color 0.3s;
     }
     body.dark {
@@ -32,9 +32,9 @@
     }
     .hidden { display: none !important; }
 
-    /****************************************
-     * Bottom Toolbar
-    ****************************************/
+    /* ----------------------------------------
+       Bottom Toolbar
+    ---------------------------------------- */
     .toolbar-bottom {
       position: fixed;
       bottom: 0; left: 0; right: 0;
@@ -44,8 +44,10 @@
       padding: 0.5rem;
       display: flex;
       gap: 0.5rem;
-      flex-wrap: wrap; 
+      flex-wrap: wrap;
       align-items: center;
+      /* If you want to accommodate iPhone’s home indicator further,
+         you can do: padding-bottom: env(safe-area-inset-bottom); */
     }
     .toolbar-bottom button {
       background: #444;
@@ -60,7 +62,6 @@
     .toolbar-bottom button:hover {
       background: #555;
     }
-    /* Page Info goes on the far right */
     #pageInfo {
       margin-left: auto;
       font-size: 0.9rem;
@@ -68,25 +69,25 @@
       flex-shrink: 0;
     }
 
-    /****************************************
-     * Reader Container
-    ****************************************/
+    /* ----------------------------------------
+       Reader Container
+    ---------------------------------------- */
     #reader {
       position: absolute;
-      top: 0;
+      top: 0; 
       left: 0; right: 0;
       bottom: 3rem; /* space for bottom toolbar */
       overflow: hidden; 
     }
 
-    /****************************************
-     * TOC Overlay
-    ****************************************/
+    /* ----------------------------------------
+       TOC Overlay
+    ---------------------------------------- */
     #mobileTOC {
       position: absolute;
-      top: 0;
+      top: 0; 
       left: 0; right: 0;
-      bottom: 3rem; 
+      bottom: 3rem;
       background: #fff;
       color: #333;
       overflow-y: auto;
@@ -112,9 +113,9 @@
       font-weight: 500;
     }
 
-    /****************************************
-     * Bookmark Manager Modal
-    ****************************************/
+    /* ----------------------------------------
+       Bookmark Manager Modal
+    ---------------------------------------- */
     .modal {
       position: fixed;
       top: 0; left: 0;
@@ -142,7 +143,6 @@
   </style>
 </head>
 <body>
-  <!-- Single bottom toolbar with all controls -->
   <div class="toolbar-bottom">
     <button id="prevBtn">Prev</button>
     <button id="nextBtn">Next</button>
@@ -153,10 +153,8 @@
     <span id="pageInfo">Page ? of ?</span>
   </div>
 
-  <!-- TOC overlay from the top down to just above bottom toolbar -->
   <div id="mobileTOC"></div>
 
-  <!-- Bookmark modal -->
   <div id="bookmarkModal" class="modal hidden">
     <div class="modal-content">
       <h2>Bookmarks</h2>
@@ -165,17 +163,17 @@
     </div>
   </div>
 
-  <!-- Reader above the bottom toolbar -->
   <div id="reader"></div>
 
   <script>
-  /******************************************************************************
-   * mobile.js
-   * - Adds bottom padding to each chapter so text isn't obscured by toolbar
-   * - Single bottom toolbar (Prev/Next, TOC, Theme, Bookmarks)
-   * - scrolled-doc per chapter, with Next/Prev as "page turns"
-   * - Light/Dark mode, bookmarks, last location
-   *****************************************************************************/
+  /* 
+     mobile.js: 
+     - Each chapter is scrolled (scrolled-doc).
+     - Next/Prev => jump to next/prev chapter.
+     - Light/Dark mode.
+     - Bookmarks, last location.
+     - Extra bottom padding includes env(safe-area-inset-bottom) for iOS + 5rem so text never hides behind toolbar or home indicator.
+  */
 
   const EPUB_FILE = "LeverAction.epub"; // rename if needed
   let mobileBook = null;
@@ -193,10 +191,10 @@
     // Open the ePub
     await openMobileBook(EPUB_FILE);
 
-    // Hook up the bottom toolbar
+    // Hook up bottom toolbar
     document.getElementById("prevBtn").onclick = () => mobileRendition?.prev();
     document.getElementById("nextBtn").onclick = () => mobileRendition?.next();
-    document.getElementById("toggleTOCBtn").onclick = () => toggleMobileTOC();
+    document.getElementById("toggleTOCBtn").onclick = () => toggleTOC();
     document.getElementById("toggleThemeBtn").onclick = () => toggleTheme();
     document.getElementById("addBookmarkBtn").onclick = () => addBookmark();
     document.getElementById("bookmarkManagerBtn").onclick = () => showBookmarkManager();
@@ -218,19 +216,20 @@
       spread: "none"
     });
 
-    // Register "light" & "dark" themes with extra bottom padding
+    // Inject bottom padding in body: "5rem + env(safe-area-inset-bottom)"
+    // So it works on iOS Safari (has safe-area) & others (0).
     mobileRendition.themes.register("light", {
       body: {
         background: "#ffffff",
         color: "#000000",
-        "padding-bottom": "5rem" /* <-- Add padding so last lines not obscured */
+        "padding-bottom": "calc(5rem + env(safe-area-inset-bottom))"
       }
     });
     mobileRendition.themes.register("dark", {
       body: {
         background: "#1e1e1e",
         color: "#f5f5f5",
-        "padding-bottom": "5rem" /* same idea in dark mode */
+        "padding-bottom": "calc(5rem + env(safe-area-inset-bottom))"
       }
     });
 
@@ -257,27 +256,11 @@
       }
     });
 
-    buildMobileTOC();
+    buildTOC();
   }
 
-  /** Update "Page X of Y" in #pageInfo */
-  function updatePageInfo(location) {
-    const pageInfoEl = document.getElementById("pageInfo");
-    if (!mobileBook?.locations) {
-      pageInfoEl.textContent = `Loc: ${location.start.cfi}`;
-      return;
-    }
-    const currentPage = mobileBook.locations.locationFromCfi(location.start.cfi);
-    const total = mobileBook.locations.total;
-    if (currentPage != null && total) {
-      pageInfoEl.textContent = `Page ${currentPage} of ${total}`;
-    } else {
-      pageInfoEl.textContent = "Loading...";
-    }
-  }
-
-  /** Build a minimal TOC overlay */
-  function buildMobileTOC() {
+  /** Build a simple TOC overlay */
+  function buildTOC() {
     const tocEl = document.getElementById("mobileTOC");
     tocEl.innerHTML = "";
     if (!mobileBook?.loaded?.navigation) return;
@@ -292,7 +275,7 @@
         a.onclick = (e) => {
           e.preventDefault();
           mobileRendition.display(chapter.href);
-          toggleMobileTOC(true);
+          toggleTOC(true);
         };
         li.appendChild(a);
         ul.appendChild(li);
@@ -301,8 +284,8 @@
     });
   }
 
-  /** Slide #mobileTOC from the top */
-  function toggleMobileTOC(forceHide=false) {
+  /** Slide #mobileTOC from top */
+  function toggleTOC(forceHide=false) {
     const tocEl = document.getElementById("mobileTOC");
     if (forceHide) {
       tocEl.style.transform = "translateY(-100%)";
@@ -331,7 +314,7 @@
     }
   }
 
-  /** Add a bookmark for current location. */
+  /** Add a bookmark for current location */
   function addBookmark() {
     if (!mobileRendition) return;
     const loc = mobileRendition.currentLocation();
@@ -349,18 +332,16 @@
     alert(`Bookmark added at ${label}`);
   }
 
-  /** Show bookmark manager. */
+  /** Show bookmark manager */
   function showBookmarkManager() {
     updateBookmarkList();
     document.getElementById("bookmarkModal").classList.remove("hidden");
   }
-
-  /** Hide bookmark manager. */
   function hideBookmarkManager() {
     document.getElementById("bookmarkModal").classList.add("hidden");
   }
 
-  /** Populate the bookmark list. */
+  /** Populate bookmark list */
   function updateBookmarkList() {
     const listEl = document.getElementById("bookmarkList");
     listEl.innerHTML = "";
@@ -378,7 +359,6 @@
       const li = document.createElement("li");
       li.style.cursor = "pointer";
       li.textContent = bm.label;
-
       li.addEventListener("click", () => {
         mobileRendition.display(bm.cfi);
         hideBookmarkManager();
@@ -399,6 +379,7 @@
       listEl.appendChild(li);
     });
   }
+
   </script>
 </body>
 </html>
