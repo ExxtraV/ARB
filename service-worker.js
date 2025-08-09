@@ -1,4 +1,5 @@
-// JavaScript Documentconst CACHE_NAME = 'lever-action-cache-v1';
+// JavaScript Document
+const CACHE_NAME = 'lever-action-cache-v1';
 const urlsToCache = [
   '/index.html',
   '/manifest.json',
