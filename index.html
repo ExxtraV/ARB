@@ -254,6 +254,7 @@ html.dark body.dark #bookmarkManager .content {
 <body>
   <!-- Toolbar with icons and bookmark buttons -->
   <div class="toolbar" id="toolbar">
+    <button id="goLibrary" aria-label="Library"><i class="fas fa-home"></i></button>
     <button id="prev" aria-label="Previous Page"><i class="fas fa-chevron-left"></i></button>
     <button id="next" aria-label="Next Page"><i class="fas fa-chevron-right"></i></button>
     <button id="toggleTheme" aria-label="Toggle Theme"><i class="fas fa-adjust"></i></button>
@@ -496,8 +497,14 @@ html.dark body.dark #bookmarkManager .content {
   // ---------------------------- 
   // INITIALIZE BOOK & GLOBAL EVENTS 
   // ---------------------------- 
-  loadBook("LeverAction.epub", "LeverAction.epub");
-  
+  const params = new URLSearchParams(window.location.search);
+  const initialBook = params.get("book") || "LeverAction.epub";
+  loadBook(initialBook, initialBook);
+
+  document.getElementById("goLibrary").addEventListener("click", function() {
+    window.location.href = "library.html";
+  });
+
   document.getElementById("prev").addEventListener("click", function() {
     if (currentRendition) currentRendition.prev();
   });
