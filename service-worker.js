@@ -1,16 +1,13 @@
 // JavaScript Document
-const CACHE_NAME = 'lever-action-cache-v1';
+const CACHE_NAME = 'lever-action-cache-v2';
 const urlsToCache = [
   '/index.html',
+  '/library.html',
+  '/library.css',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
-  // Include your CSS, JS, and any other assets you want to cache
-  // For example:
-  // '/styles.css',
-  // '/script.js',
-  // Also consider caching your EPUB file if desired:
-  // '/LeverAction.epub'
+  // Add additional assets like scripts or EPUB files here if needed
 ];
 
 self.addEventListener('install', event => {
